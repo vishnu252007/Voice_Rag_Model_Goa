@@ -1,0 +1,9 @@
+venv/
+.env
+__pycache__/
+*.pyc
+qdrant_local_data/
+bm25_chunks.pkl
+retrieval_debug.log
+latency_log.csv
+test_audio*.wav

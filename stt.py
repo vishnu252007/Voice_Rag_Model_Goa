@@ -1,0 +1,54 @@
+"""
+Step 1 of the pipeline: turn an audio file into text using Sarvam's Saaras v3 model.
+
+HOW TO TEST THIS FILE ON ITS OWN:
+    python stt.py path/to/your_recording.wav
+
+Record a short wav on your phone/laptop, drop it in the project folder, and run this
+before wiring it into the full app — confirm you can actually get text out first.
+"""
+import sys
+import requests
+from config import SARVAM_API_KEY
+
+SARVAM_STT_URL = "https://api.sarvam.ai/speech-to-text"
+
+
+def transcribe_audio(file_path: str, mode: str = "transcribe") -> dict:
+    """
+    Sends an audio file to Sarvam and returns {"text": ..., "language": ...}.
+
+    mode options:
+      "transcribe" -> returns text in whatever language was spoken
+      "translate"  -> returns text translated to English
+    """
+    if not SARVAM_API_KEY:
+        raise RuntimeError("SARVAM_API_KEY is not set. Add it to your .env file.")
+
+    with open(file_path, "rb") as f:
+        files = {"file": (file_path, f, "audio/wav")}
+        data = {"model": "saaras:v3", "mode": mode}
+        headers = {"api-subscription-key": SARVAM_API_KEY}
+
+        response = requests.post(
+            SARVAM_STT_URL, headers=headers, files=files, data=data, timeout=30
+        )
+
+    if response.status_code != 200:
+        raise RuntimeError(f"Sarvam STT failed ({response.status_code}): {response.text}")
+
+    result = response.json()
+    return {
+        "text": result.get("transcript", ""),
+        "language": result.get("language_code", "unknown"),
+    }
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python stt.py path/to/audio.wav")
+        sys.exit(1)
+
+    out = transcribe_audio(sys.argv[1])
+    print(f"Language detected: {out['language']}")
+    print(f"Transcript: {out['text']}")
