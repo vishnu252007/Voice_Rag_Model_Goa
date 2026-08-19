@@ -1,9 +1,12 @@
 """
-Step 2: turn raw passages from the dataset into a list of chunk dicts.
+Step 2: Turn raw passages from the dataset into a list of chunk dicts.
 
-Every strategy returns the SAME shape so the rest of the pipeline doesn't care
-which one produced a chunk:
+Supports multiple chunking strategies:
+1. fixed: Fixed-size word count chunking with overlap
+2. semantic: Meaning-shift boundary chunking using sentence embeddings
+3. metadata: Metadata-aware chunking preserving language, source, position, char length
 
+Every strategy returns the same standard shape:
     {
         "text": "...",
         "doc_id": "source document id",
@@ -11,20 +14,15 @@ which one produced a chunk:
         "strategy": "fixed" | "semantic" | "metadata",
         "metadata": {"language": "hi", "position": 0, ...}
     }
-
-HOW TO TEST THIS FILE ON ITS OWN:
-    python chunking.py
-(runs a tiny built-in example so you can see the difference between strategies)
 """
+import re
 from typing import List, Dict
 from sentence_transformers import SentenceTransformer, util
-import numpy as np
 
 _embedder = None
 
 
 def _get_embedder():
-    # loaded lazily so importing this file doesn't download the model immediately
     global _embedder
     if _embedder is None:
         from config import EMBEDDING_MODEL
@@ -32,12 +30,28 @@ def _get_embedder():
     return _embedder
 
 
-def fixed_size_chunk(text: str, doc_id: str, size: int = 200, overlap: int = 40,
-                      language: str = "unknown") -> List[Dict]:
-    """Baseline strategy: cut every `size` words, with `overlap` words shared between
-    consecutive chunks so a sentence split across the cut point still appears whole
-    in at least one chunk."""
+def _split_into_sentences(text: str) -> List[str]:
+    """Splits multilingual text into sentences respecting English periods,
+    Devanagari dandas (। / ॥), question marks, exclamation marks, and newlines."""
+    # Replace common sentence terminators with a unified delimiter
+    cleaned = re.sub(r'[\r\n]+', ' ', text)
+    # Split by ., !, ?, ।, ॥ or semicolons
+    raw_sentences = re.split(r'[.!?।॥;]+', cleaned)
+    sentences = [s.strip() for s in raw_sentences if s and len(s.strip()) > 3]
+    return sentences if sentences else [text.strip()]
+
+
+def fixed_size_chunk(
+    text: str,
+    doc_id: str,
+    size: int = 150,
+    overlap: int = 30,
+    language: str = "unknown"
+) -> List[Dict]:
+    """Cuts every `size` words, with `overlap` words shared between consecutive chunks."""
     words = text.split()
+    if not words:
+        return []
     chunks = []
     start = 0
     idx = 0
@@ -51,21 +65,26 @@ def fixed_size_chunk(text: str, doc_id: str, size: int = 200, overlap: int = 40,
             "strategy": "fixed",
             "metadata": {"language": language, "position": idx},
         })
-        start += size - overlap
+        start += max(1, size - overlap)
         idx += 1
     return chunks
 
 
-def semantic_chunk(text: str, doc_id: str, similarity_threshold: float = 0.55,
-                    language: str = "unknown") -> List[Dict]:
-    """Cuts at points where meaning shifts, instead of at a fixed word count.
-    Splits into sentences, embeds each one, and starts a new chunk whenever a
-    sentence is no longer similar enough to the one before it."""
-    sentences = [s.strip() for s in text.replace("!", ".").replace("?", ".").split(".") if s.strip()]
+def semantic_chunk(
+    text: str,
+    doc_id: str,
+    similarity_threshold: float = 0.50,
+    language: str = "unknown"
+) -> List[Dict]:
+    """Cuts at points where meaning shifts, using sentence similarity."""
+    sentences = _split_into_sentences(text)
     if len(sentences) <= 1:
         return [{
-            "text": text, "doc_id": doc_id, "chunk_id": f"{doc_id}_semantic_0",
-            "strategy": "semantic", "metadata": {"language": language, "position": 0},
+            "text": text,
+            "doc_id": doc_id,
+            "chunk_id": f"{doc_id}_semantic_0",
+            "strategy": "semantic",
+            "metadata": {"language": language, "position": 0},
         }]
 
     embedder = _get_embedder()
@@ -78,8 +97,10 @@ def semantic_chunk(text: str, doc_id: str, similarity_threshold: float = 0.55,
         if sim < similarity_threshold:
             chunks.append({
                 "text": ". ".join(current) + ".",
-                "doc_id": doc_id, "chunk_id": f"{doc_id}_semantic_{idx}",
-                "strategy": "semantic", "metadata": {"language": language, "position": idx},
+                "doc_id": doc_id,
+                "chunk_id": f"{doc_id}_semantic_{idx}",
+                "strategy": "semantic",
+                "metadata": {"language": language, "position": idx},
             })
             idx += 1
             current = [sentences[i]]
@@ -88,17 +109,24 @@ def semantic_chunk(text: str, doc_id: str, similarity_threshold: float = 0.55,
     if current:
         chunks.append({
             "text": ". ".join(current) + ".",
-            "doc_id": doc_id, "chunk_id": f"{doc_id}_semantic_{idx}",
-            "strategy": "semantic", "metadata": {"language": language, "position": idx},
+            "doc_id": doc_id,
+            "chunk_id": f"{doc_id}_semantic_{idx}",
+            "strategy": "semantic",
+            "metadata": {"language": language, "position": idx},
         })
     return chunks
 
 
-def metadata_aware_chunk(text: str, doc_id: str, language: str, source_type: str = "passage",
-                          size: int = 200, overlap: int = 40) -> List[Dict]:
-    """Same cut as fixed_size_chunk, but attaches richer metadata so retrieval can
-    filter BEFORE searching (e.g. only search Hindi-tagged chunks for a Hindi query),
-    which is faster and more accurate than searching everything blindly."""
+def metadata_aware_chunk(
+    text: str,
+    doc_id: str,
+    language: str,
+    source_type: str = "passage",
+    size: int = 150,
+    overlap: int = 30
+) -> List[Dict]:
+    """Attaches rich metadata (language, source type, char length, position)
+    for filtered and accelerated retrieval."""
     base_chunks = fixed_size_chunk(text, doc_id, size, overlap, language)
     for c in base_chunks:
         c["strategy"] = "metadata"
@@ -108,8 +136,7 @@ def metadata_aware_chunk(text: str, doc_id: str, language: str, source_type: str
 
 
 def build_all_strategies(text: str, doc_id: str, language: str = "unknown") -> Dict[str, List[Dict]]:
-    """Convenience function: runs every strategy on the same text so you can compare
-    them side by side (useful for your demo video and README)."""
+    """Runs all three chunking strategies side by side."""
     return {
         "fixed": fixed_size_chunk(text, doc_id, language=language),
         "semantic": semantic_chunk(text, doc_id, language=language),
@@ -118,14 +145,6 @@ def build_all_strategies(text: str, doc_id: str, language: str = "unknown") -> D
 
 
 if __name__ == "__main__":
-    sample = (
-        "The Taj Mahal is located in Agra, India. It was built by Mughal emperor Shah Jahan. "
-        "Construction began in 1632 and took around 21 years to complete. "
-        "In contrast, cricket is the most popular sport in India. "
-        "The Indian cricket team won the World Cup in 2011 and again in 2023."
-    )
-    result = build_all_strategies(sample, doc_id="demo_doc", language="en")
-    for strategy, chunks in result.items():
-        print(f"\n--- {strategy} ({len(chunks)} chunks) ---")
-        for c in chunks:
-            print(f"  [{c['chunk_id']}] {c['text'][:80]}...")
+    sample_en = "The Taj Mahal is in Agra, India. It was built by Mughal emperor Shah Jahan. Construction began in 1632."
+    result = build_all_strategies(sample_en, doc_id="demo_en", language="en")
+    print(f"Strategies generated: {list(result.keys())}")

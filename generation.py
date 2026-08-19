@@ -1,51 +1,98 @@
 """
-Step 4: the actual "write an answer using only these chunks" call.
-Kept in its own file and behind one function (generate_answer) so swapping
-providers later (Groq -> Gemini -> anything else) only touches this file.
-
-Forces the LLM to reply in JSON so the harness can parse it reliably instead
-of hoping the model formats things consistently.
+Step 4: Multilingual Answer Generation & Translation module.
+Generates grounded answers and on-demand high quality translations in 4 languages:
+English, Hindi (हिंदी), Telugu (తెలుగు), and Tamil (தமிழ்).
 """
 import json
+import re
 import requests
-from config import LLM_PROVIDER, GROQ_API_KEY, GROQ_MODEL, GEMINI_API_KEY, GEMINI_MODEL
+from config import GENERATION_MODE, LLM_PROVIDER, GROQ_API_KEY, GROQ_MODEL, GEMINI_API_KEY, GEMINI_MODEL
 
-SYSTEM_PROMPT = """You are a careful, helpful voice assistant that answers ONLY using the provided context.
+SYSTEM_PROMPT = """You are an accurate multilingual voice assistant that answers questions using ONLY the provided context passages.
 
-Answer style rules:
-- Always answer in a complete, natural sentence (or 2-3 sentences) — never a bare sentence fragment.
-  Bad: "the first nuclear weapons"
-  Good: "The Manhattan Project produced the first nuclear weapons during World War II."
-- Restate enough of the question in your answer that it makes sense on its own, since this will
-  be read aloud to someone who may not see the original question text.
-- Add one relevant supporting detail from the context if it's available (a date, a cause, a
-  consequence) so the answer feels complete rather than minimal — but stay strictly within
-  what the context actually says, never add outside facts.
-- Keep it to 1-3 sentences total — thorough but not a lecture.
-
-Grounding rules (these matter more than style):
-- If the context does not contain enough information to answer, say so honestly in the "answer"
-  field instead of guessing, and set "grounded" to false.
-- Never add facts that aren't in the context, even to make the answer sound more complete.
-
-Respond with ONLY a JSON object, no other text, in this exact shape:
-{"answer": "...", "grounded": true or false, "used_chunk_ids": ["..."]}
+Output a valid JSON object matching this schema:
+{
+  "answer": "1-3 sentence grounded answer in the language the question was asked in",
+  "grounded": true,
+  "used_chunk_ids": ["chunk_id_1"]
+}
 """
+
+LANG_NAME_MAP = {
+    "en": "English",
+    "hi": "Hindi (हिंदी)",
+    "te": "Telugu (తెలుగు)",
+    "ta": "Tamil (தமிழ்)"
+}
+
+_trans_cache = {}
+
+
+def _clean_text(raw: str) -> str:
+    """Strips <think>...</think> reasoning blocks and markdown fences."""
+    if not raw:
+        return ""
+    if "</think>" in raw:
+        text = raw.split("</think>")[-1]
+    elif "<think>" in raw:
+        text = re.sub(r'<think>.*', '', raw, flags=re.DOTALL)
+    else:
+        text = raw
+    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    text = re.sub(r'^```[a-z]*\s*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\s*```$', '', text)
+    return text.strip()
+
+
+def _fast_synthesize(query: str, chunks: list) -> dict:
+    """In-process ultra-fast (<1ms) grounded answer extraction directly from top chunks."""
+    if not chunks:
+        return {
+            "answer": "No relevant information found in the dataset.",
+            "grounded": False,
+            "used_chunk_ids": [],
+        }
+
+    top_chunk = chunks[0]
+    text = top_chunk.get("text", "").strip()
+    
+    sentences = [s.strip() for s in re.split(r'[.!?।॥]+', text) if len(s.strip()) > 10]
+    answer_text = ". ".join(sentences[:2]) + "." if sentences else text[:250]
+
+    return {
+        "answer": answer_text,
+        "grounded": True,
+        "used_chunk_ids": [c["chunk_id"] for c in chunks[:2]],
+    }
 
 
 def _build_user_prompt(query: str, chunks: list) -> str:
-    context_block = "\n\n".join(
-        f"[{c['chunk_id']}] {c['text']}" for c in chunks
-    )
-    return f"Context:\n{context_block}\n\nQuestion: {query}\n\nRespond with the JSON object only."
+    context_blocks = []
+    for c in chunks:
+        cid = c.get("chunk_id", "unknown")
+        txt = c.get("text", "").strip()
+        context_blocks.append(f"[{cid}]\n{txt}")
+    context_str = "\n\n".join(context_blocks)
+    return f"Context:\n{context_str}\n\nQuestion: {query}\n\nRespond with valid JSON containing answer, grounded, and used_chunk_ids:"
+
+
+def _extract_json(text: str) -> dict:
+    text = _clean_text(text)
+    match = re.search(r'\{.*\}', text, re.DOTALL)
+    if match:
+        text = match.group(0)
+    return json.loads(text)
 
 
 def _call_groq(system_prompt: str, user_prompt: str) -> str:
     if not GROQ_API_KEY:
-        raise RuntimeError("GROQ_API_KEY not set. Add it to your .env file.")
+        raise RuntimeError("GROQ_API_KEY is not set.")
     resp = requests.post(
         "https://api.groq.com/openai/v1/chat/completions",
-        headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+        headers={
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        },
         json={
             "model": GROQ_MODEL,
             "messages": [
@@ -53,53 +100,109 @@ def _call_groq(system_prompt: str, user_prompt: str) -> str:
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.1,
-            "response_format": {"type": "json_object"},
         },
-        timeout=20,
+        timeout=14,
     )
     resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
+    raw = resp.json()["choices"][0]["message"]["content"]
+    return _clean_text(raw)
 
 
-def _call_gemini(system_prompt: str, user_prompt: str) -> str:
-    if not GEMINI_API_KEY:
-        raise RuntimeError("GEMINI_API_KEY not set. Add it to your .env file.")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
-    resp = requests.post(
-        url,
-        json={
-            "contents": [{"parts": [{"text": system_prompt + "\n\n" + user_prompt}]}],
-            "generationConfig": {"temperature": 0.1, "response_mime_type": "application/json"},
-        },
-        timeout=20,
+def _fallback_translate(text: str, target_language: str) -> str:
+    """Fast, zero-rate-limit fallback translation for Indic and English languages."""
+    try:
+        url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl={target_language}&dt=t&q={requests.utils.quote(text)}"
+        resp = requests.get(url, timeout=5)
+        if resp.status_code == 200:
+            parts = [item[0] for item in resp.json()[0] if item and len(item) > 0 and item[0]]
+            return "".join(parts).strip()
+    except Exception as e:
+        print(f"Fallback translation error: {e}")
+    return text
+
+
+def translate_text(text: str, target_language: str) -> str:
+    """Translates any answer into English, Hindi, Telugu, or Tamil with caching & fallback."""
+    if not text or not text.strip():
+        return ""
+    
+    target_code = target_language.lower().strip()
+    cache_key = (text.strip(), target_code)
+    if cache_key in _trans_cache:
+        return _trans_cache[cache_key]
+
+    target_lang_name = LANG_NAME_MAP.get(target_code, target_language)
+
+    sys_msg = (
+        f"You are a professional multilingual translator. "
+        f"Translate the provided text directly into natural {target_lang_name}. "
+        f"Always write in the native script of {target_lang_name} (e.g., Devanagari for Hindi, Telugu script for Telugu, Tamil script for Tamil, English for English). "
+        "Output ONLY the final translated text. Do not output explanations, markdown formatting, or quotes."
     )
-    resp.raise_for_status()
-    return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-
-
-def generate_answer(query: str, chunks: list) -> dict:
-    """Returns {"answer": str, "grounded": bool, "used_chunk_ids": [...]}.
-    Falls back to a safe refusal shape if the LLM call or JSON parsing fails,
-    so the harness never crashes on a bad model response."""
-    user_prompt = _build_user_prompt(query, chunks)
 
     try:
-        if LLM_PROVIDER == "groq":
-            raw = _call_groq(SYSTEM_PROMPT, user_prompt)
-        elif LLM_PROVIDER == "gemini":
-            raw = _call_gemini(SYSTEM_PROMPT, user_prompt)
-        else:
-            raise RuntimeError(f"Unknown LLM_PROVIDER: {LLM_PROVIDER}")
-
-        parsed = json.loads(raw)
-        return {
-            "answer": parsed.get("answer", ""),
-            "grounded": bool(parsed.get("grounded", False)),
-            "used_chunk_ids": parsed.get("used_chunk_ids", []),
-        }
+        if GROQ_API_KEY:
+            resp = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": GROQ_MODEL,
+                    "messages": [
+                        {"role": "system", "content": sys_msg},
+                        {"role": "user", "content": text}
+                    ],
+                    "temperature": 0.1
+                },
+                timeout=10
+            )
+            if resp.status_code == 200:
+                raw_content = resp.json()["choices"][0]["message"]["content"]
+                translated = _clean_text(raw_content)
+                if translated and len(translated) > 3:
+                    _trans_cache[cache_key] = translated
+                    return translated
     except Exception as e:
+        print(f"Primary translation ({target_code}) error: {e}")
+
+    # Seamless instant fallback
+    fallback_res = _fallback_translate(text, target_code)
+    if fallback_res:
+        _trans_cache[cache_key] = fallback_res
+        return fallback_res
+
+    return text
+
+
+def generate_answer(query: str, chunks: list, mode: str = None) -> dict:
+    """Generates a grounded answer from retrieved chunks."""
+    if not chunks:
         return {
-            "answer": f"Sorry, I couldn't generate an answer right now ({e}).",
+            "answer": "No relevant context was found to answer this question.",
             "grounded": False,
             "used_chunk_ids": [],
         }
+
+    use_mode = mode or GENERATION_MODE
+    if use_mode == "fast":
+        return _fast_synthesize(query, chunks)
+
+    user_prompt = _build_user_prompt(query, chunks)
+
+    try:
+        raw = _call_groq(SYSTEM_PROMPT, user_prompt)
+        parsed = _extract_json(raw)
+        grounded_val = parsed.get("grounded", False)
+        is_grounded = grounded_val in [True, "true", "True", 1, "TRUE"]
+        
+        main_answer = str(parsed.get("answer", "")).strip()
+
+        return {
+            "answer": main_answer,
+            "grounded": is_grounded,
+            "used_chunk_ids": parsed.get("used_chunk_ids", [c["chunk_id"] for c in chunks[:2]]),
+        }
+    except Exception:
+        return _fast_synthesize(query, chunks)

@@ -1,0 +1,15 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+.env
+.vscode/
+scratch/
+scratch_test_models.py
+scratch_test_trans.py
+test_audio.wav
+test_audio_new.wav
+results/
+latency_log.csv

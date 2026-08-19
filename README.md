@@ -1,6 +1,16 @@
-# Voice-Enabled RAG — HH Goa 2026
+---
+title: Voice RAG Model Goa
+emoji: 🌴
+colorFrom: green
+colorTo: yellow
+sdk: docker
+app_port: 7860
+pinned: false
+---
 
-Pipeline: **Voice → Sarvam STT → Hybrid retrieval (vector + BM25 + rerank) → Guarded LLM answer**
+# Voice-Enabled Multilingual RAG — HH Goa 2026
+
+Pipeline: **Voice → Sarvam STT → Hybrid retrieval (FAISS + BM25) → Guarded LLM answer (Groq Qwen)**
 
 ## Setup
 

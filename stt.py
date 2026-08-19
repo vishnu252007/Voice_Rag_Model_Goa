@@ -14,19 +14,24 @@ from config import SARVAM_API_KEY
 SARVAM_STT_URL = "https://api.sarvam.ai/speech-to-text"
 
 
-def transcribe_audio(file_path: str, mode: str = "transcribe") -> dict:
+def transcribe_audio(file_path: str, mode: str = "transcribe", content_type: str = "audio/wav") -> dict:
     """
     Sends an audio file to Sarvam and returns {"text": ..., "language": ...}.
 
     mode options:
       "transcribe" -> returns text in whatever language was spoken
       "translate"  -> returns text translated to English
+
+    content_type: the REAL mime type of the audio (e.g. "audio/wav" for files you
+    recorded yourself, "audio/webm" for browser microphone recordings — browsers
+    record webm by default, not wav, so this must match or Sarvam may reject or
+    mis-transcribe the file).
     """
     if not SARVAM_API_KEY:
         raise RuntimeError("SARVAM_API_KEY is not set. Add it to your .env file.")
 
     with open(file_path, "rb") as f:
-        files = {"file": (file_path, f, "audio/wav")}
+        files = {"file": (file_path, f, content_type)}
         data = {"model": "saaras:v3", "mode": mode}
         headers = {"api-subscription-key": SARVAM_API_KEY}
 

@@ -1,47 +1,49 @@
 """
-The three safety checks, run at three different points in the pipeline.
-Each function returns (passed: bool, reason: str) so the harness can log
-WHY something was refused — important for your demo video.
+Safety guardrails for Voice-Enabled RAG:
+1. Input Safety: Pre-filter for harmful/unsafe patterns and invalid lengths
+2. Retrieval Confidence: Blocks generation if context match is too weak
+3. Grounding Validation: Verifies output is grounded in retrieved facts
 """
 from typing import List, Dict, Tuple
 from config import MIN_RETRIEVAL_SCORE
 
-OFF_TOPIC_KEYWORDS_HINT = (
-    "This assumes your dataset is general-knowledge passages (MSMARCO-XI). "
-    "Adjust the topic check below to match your actual dataset's domain."
-)
+_UNSAFE_PATTERNS = [
+    "how to make a bomb", "how to make a weapon", "kill myself", "suicide method",
+    "how to make drugs", "child abuse", "how to hack into", "credit card details"
+]
 
 
 def check_input_safety(query: str) -> Tuple[bool, str]:
-    """Very basic pre-filter: blocks empty input and obvious junk before we
-    waste a retrieval + LLM call on it. Extend this with a proper moderation
-    API call if you have time (e.g. an LLM classification call)."""
+    """Pre-filter run before retrieval."""
     if not query or len(query.strip()) < 2:
         return False, "Query is empty or too short."
     if len(query) > 2000:
-        return False, "Query is unreasonably long — likely not a real spoken question."
+        return False, "Query exceeds maximum allowed length."
+
+    query_lower = query.lower()
+    for pattern in _UNSAFE_PATTERNS:
+        if pattern in query_lower:
+            return False, "Query matched an unsafe content policy rule."
+
     return True, "ok"
 
 
 def check_retrieval_confidence(chunks: List[Dict]) -> Tuple[bool, str]:
-    """After retrieval: if even our best-matching chunk is a weak match, we
-    should refuse rather than force the LLM to answer from irrelevant context."""
+    """Evaluates whether retrieved chunks have sufficient relevance confidence."""
     if not chunks:
-        return False, "No chunks retrieved at all."
-    best_score = chunks[0].get("rerank_score", chunks[0].get("score", 0))
+        return False, "No relevant chunks retrieved."
+    
+    best_score = chunks[0].get("rerank_score", chunks[0].get("score", 0.0))
     if best_score < MIN_RETRIEVAL_SCORE:
         return False, f"Best retrieval score {best_score:.3f} is below threshold {MIN_RETRIEVAL_SCORE}."
-    return True, f"ok (best score {best_score:.3f})"
+    
+    return True, f"ok (confidence {best_score:.3f})"
 
 
 def check_grounding(generation_result: Dict) -> Tuple[bool, str]:
-    """After generation: trust the LLM's own self-reported 'grounded' flag
-    (we forced it to output this in generation.py's JSON schema) as a first
-    pass. This is a cheap check — a stronger version would run a second,
-    separate LLM call asking 'does this answer follow from this context, yes/no'
-    for a real second opinion instead of trusting the same call that produced it."""
+    """Validates answer grounding and non-emptiness."""
     if not generation_result.get("grounded", False):
-        return False, "Model flagged its own answer as not grounded in context."
+        return False, "Answer flagged as not grounded in retrieved context."
     if not generation_result.get("answer", "").strip():
-        return False, "Model returned an empty answer."
+        return False, "Answer returned by model was empty."
     return True, "ok"

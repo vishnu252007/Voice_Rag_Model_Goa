@@ -68,7 +68,13 @@ def ensure_collection(vector_size: int = 768):
 def upload_chunks(chunks: List[Dict], batch_size: int = 50):
     """Embeds and uploads a list of chunk dicts (see chunking.py for the shape).
     Uploads in small batches instead of one giant request — a single request with
-    hundreds of points can time out on a free-tier cluster or slower connection."""
+    hundreds of points can time out on a free-tier cluster or slower connection.
+
+    Point IDs are derived deterministically from each chunk's chunk_id (via uuid5)
+    instead of sequential integers — sequential IDs starting at 0 on every run
+    meant a second ingest (e.g. Hindi after English) would silently overwrite the
+    first run's points instead of adding alongside them."""
+    import uuid
     embedder = _get_embedder()
     ensure_collection(vector_size=embedder.get_sentence_embedding_dimension())
 
@@ -77,7 +83,7 @@ def upload_chunks(chunks: List[Dict], batch_size: int = 50):
 
     points = [
         PointStruct(
-            id=i,
+            id=str(uuid.uuid5(uuid.NAMESPACE_DNS, chunks[i]["chunk_id"])),
             vector=vectors[i],
             payload={
                 "text": chunks[i]["text"],
@@ -113,6 +119,7 @@ def upload_chunks(chunks: List[Dict], batch_size: int = 50):
 def vector_search(query: str, top_k: int = 20, language_filter: str = None) -> List[Dict]:
     """Returns top_k chunks closest in meaning to the query, each with a similarity score."""
     import time, os
+    debug_timing = os.getenv("DEBUG_TIMING", "false").lower() == "true"
     t0 = time.perf_counter()
     embedder = _get_embedder()
     query_vector = embedder.encode(query).tolist()
@@ -136,9 +143,12 @@ def vector_search(query: str, top_k: int = 20, language_filter: str = None) -> L
     )
     t2 = time.perf_counter()
 
-    log_path = os.path.join(os.path.dirname(__file__), "retrieval_debug.log")
-    with open(log_path, "a") as f:
-        f.write(f"  [vector_search split] embed={(t1-t0)*1000:.0f}ms  qdrant_network_call={(t2-t1)*1000:.0f}ms\n")
+    if debug_timing:
+        # print only — NOT a disk write. A per-request file write was here
+        # during development and was a real, measurable latency cost on every
+        # single call. Removed for the eval loop; set DEBUG_TIMING=true if
+        # you need this instrumentation again temporarily.
+        print(f"    [vector_search] embed={(t1-t0)*1000:.0f}ms  qdrant_call={(t2-t1)*1000:.0f}ms", flush=True)
 
     return [
         {"text": r.payload["text"], "chunk_id": r.payload["chunk_id"],
