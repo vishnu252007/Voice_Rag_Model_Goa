@@ -1016,6 +1016,23 @@
     }
   }
 
+  async function safeApiFetch(endpoint, options = {}) {
+    const targetUrl = getApiUrl(endpoint);
+    try {
+      const res = await fetch(targetUrl, options);
+      if (res.ok) return res;
+      if (targetUrl !== endpoint) {
+        return await fetch(endpoint, options);
+      }
+      return res;
+    } catch (err) {
+      if (targetUrl !== endpoint) {
+        return await fetch(endpoint, options);
+      }
+      throw err;
+    }
+  }
+
   async function translateResult(lang) {
     if (!latestResult || !latestResult.answer) return;
     if (!latestResult.translations) latestResult.translations = {};
@@ -1034,7 +1051,7 @@
     answerDisplay.innerHTML = '<span style="color:var(--text-muted); font-style:italic;">Translating answer into selected language...</span>';
 
     try {
-      const res = await fetch(getApiUrl('/translate'), {
+      const res = await safeApiFetch('/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1100,7 +1117,7 @@
     }
 
     try {
-      const res = await fetch(getApiUrl('/ask-voice'), { method: 'POST', body: formData });
+      const res = await safeApiFetch('/ask-voice', { method: 'POST', body: formData });
       const data = await res.json();
       renderResponse(data);
       micStatusText.textContent = 'Tap microphone to speak your question';
@@ -1119,7 +1136,7 @@
     resultPanel.classList.remove('active');
 
     try {
-      const res = await fetch(getApiUrl('/ask-text'), {
+      const res = await safeApiFetch('/ask-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: query, language: activeLanguage || null })
