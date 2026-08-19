@@ -772,7 +772,8 @@
 
   <div class="hero-tagline">
     <span class="pill-dot"></span>
-    Voice-Enabled Multilingual RAG · Real-time Indic AI
+    <span>Voice-Enabled Multilingual RAG · Real-time Indic AI</span>
+    <span id="apiConfigBadge" style="margin-left:8px; padding:2px 8px; background:rgba(255,255,255,0.7); border-radius:12px; cursor:pointer; font-size:11px;" onclick="setBackendUrl()">⚙️ API: Direct</span>
   </div>
 </header>
 
@@ -967,6 +968,43 @@
     });
   });
 
+  // Backend API URL configuration (useful for Vercel deployment)
+  let backendUrl = localStorage.getItem('RAG_BACKEND_URL') || '';
+  
+  function getApiUrl(endpoint) {
+    if (backendUrl && backendUrl.trim()) {
+      return backendUrl.trim().replace(/\/+$/, '') + endpoint;
+    }
+    return endpoint;
+  }
+
+  function setBackendUrl() {
+    const current = backendUrl || window.location.origin;
+    const input = prompt('Enter your Backend API URL (e.g. https://your-backend.up.railway.app):', current);
+    if (input !== null) {
+      backendUrl = input.trim();
+      if (backendUrl) {
+        localStorage.setItem('RAG_BACKEND_URL', backendUrl);
+      } else {
+        localStorage.removeItem('RAG_BACKEND_URL');
+      }
+      updateApiStatusBadge();
+    }
+  }
+
+  function updateApiStatusBadge() {
+    const badge = document.getElementById('apiConfigBadge');
+    if (badge) {
+      if (backendUrl) {
+        badge.innerHTML = `⚙️ API: <span style="color:#059669; font-weight:700;">Remote</span>`;
+        badge.title = `Connected to: ${backendUrl} (Click to change)`;
+      } else {
+        badge.innerHTML = `⚙️ API: <span style="color:#64748b;">Direct</span>`;
+        badge.title = `Connected to current origin (Click to set custom backend URL)`;
+      }
+    }
+  }
+
   async function translateResult(lang) {
     if (!latestResult || !latestResult.answer) return;
     if (!latestResult.translations) latestResult.translations = {};
@@ -985,7 +1023,7 @@
     answerDisplay.innerHTML = '<span style="color:var(--text-muted); font-style:italic;">Translating answer into selected language...</span>';
 
     try {
-      const res = await fetch('/translate', {
+      const res = await fetch(getApiUrl('/translate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1051,12 +1089,12 @@
     }
 
     try {
-      const res = await fetch('/ask-voice', { method: 'POST', body: formData });
+      const res = await fetch(getApiUrl('/ask-voice'), { method: 'POST', body: formData });
       const data = await res.json();
       renderResponse(data);
       micStatusText.textContent = 'Tap microphone to speak your question';
     } catch (e) {
-      micStatusText.textContent = 'Voice request failed. Please check server connection.';
+      micStatusText.textContent = 'Voice request failed. Please check server connection / API URL.';
     }
   }
 
@@ -1070,7 +1108,7 @@
     resultPanel.classList.remove('active');
 
     try {
-      const res = await fetch('/ask-text', {
+      const res = await fetch(getApiUrl('/ask-text'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: query, language: activeLanguage || null })
@@ -1079,7 +1117,7 @@
       renderResponse({ ...data, transcript: query });
       micStatusText.textContent = 'Tap microphone to speak your question';
     } catch (e) {
-      micStatusText.textContent = 'Error connecting to RAG backend server.';
+      micStatusText.textContent = 'Error connecting to RAG backend server. Check API URL.';
     }
   });
 
@@ -1123,6 +1161,9 @@
     // Smooth scroll to result
     resultPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
+
+  // Initialize status badge
+  updateApiStatusBadge();
 </script>
 </body>
 </html>
