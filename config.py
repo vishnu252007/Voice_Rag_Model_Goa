@@ -48,9 +48,9 @@ RERANKER_ENABLED = _get_clean_env("RERANKER_ENABLED", "false").lower() == "true"
 RERANKER_MODEL = _get_clean_env("RERANKER_MODEL", "cross-encoder/ms-marco-TinyBERT-L-2-v2")
 
 # --- Guardrail thresholds ---
-MIN_RETRIEVAL_SCORE = float(_get_clean_env("MIN_RETRIEVAL_SCORE", "0.05"))
-TOP_K_RETRIEVE = int(_get_clean_env("TOP_K_RETRIEVE", "5"))
-TOP_K_FINAL = int(_get_clean_env("TOP_K_FINAL", "3"))
+MIN_RETRIEVAL_SCORE = float(_get_clean_env("MIN_RETRIEVAL_SCORE", "0.08"))
+TOP_K_RETRIEVE = int(_get_clean_env("TOP_K_RETRIEVE", "12"))
+TOP_K_FINAL = int(_get_clean_env("TOP_K_FINAL", "6"))
 
 # --- Query cache ---
 CACHE_ENABLED = _get_clean_env("CACHE_ENABLED", "true").lower() == "true"
