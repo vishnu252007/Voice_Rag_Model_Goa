@@ -1,7 +1,5 @@
 {
-  "version": 2,
   "cleanUrls": true,
-  "public": false,
   "rewrites": [
     {
       "source": "/",
