@@ -2,8 +2,28 @@
   "cleanUrls": true,
   "rewrites": [
     {
+      "source": "/ask-text",
+      "destination": "https://voiceragmodelgoa-production.up.railway.app/ask-text"
+    },
+    {
+      "source": "/ask-voice",
+      "destination": "https://voiceragmodelgoa-production.up.railway.app/ask-voice"
+    },
+    {
+      "source": "/translate",
+      "destination": "https://voiceragmodelgoa-production.up.railway.app/translate"
+    },
+    {
+      "source": "/health",
+      "destination": "https://voiceragmodelgoa-production.up.railway.app/health"
+    },
+    {
       "source": "/",
-      "destination": "/static/index.html"
+      "destination": "/index.html"
+    },
+    {
+      "source": "/assets/(.*)",
+      "destination": "/assets/$1"
     },
     {
       "source": "/static/(.*)",
