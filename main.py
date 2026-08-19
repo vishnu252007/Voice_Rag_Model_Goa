@@ -119,12 +119,37 @@ def ask_voice(file: UploadFile = File(...), language: Optional[str] = Form(None)
 
     try:
         with timed_stage() as t:
-            stt_result = transcribe_audio(tmp_path, content_type=real_content_type)
+            try:
+                stt_result = transcribe_audio(tmp_path, content_type=real_content_type)
+            except Exception as stt_err:
+                print(f"STT Error: {stt_err}")
+                return {
+                    "answer": f"Speech-to-text error: {stt_err}. Please ensure SARVAM_API_KEY is configured in Railway Variables.",
+                    "grounded": False,
+                    "refused": True,
+                    "refusal_reason": str(stt_err),
+                    "transcript": "",
+                    "sources": [],
+                    "timings": {"stt_ms": round(t["ms"], 1), "total_ms": round(t["ms"], 1)}
+                }
+
         stt_ms = round(t["ms"], 1)
+        transcript = (stt_result.get("text") or "").strip()
+
+        if not transcript:
+            return {
+                "answer": "Could not detect clear speech in the audio. Please try speaking again.",
+                "grounded": False,
+                "refused": True,
+                "refusal_reason": "Empty transcript from STT",
+                "transcript": "",
+                "sources": [],
+                "timings": {"stt_ms": stt_ms, "total_ms": stt_ms}
+            }
 
         detected_lang = language or _normalize_language_code(stt_result.get("language"))
-        response = answer_query(stt_result["text"], language_filter=detected_lang)
-        response["transcript"] = stt_result["text"]
+        response = answer_query(transcript, language_filter=detected_lang)
+        response["transcript"] = transcript
         response["detected_language"] = stt_result.get("language")
         response["timings"]["stt_ms"] = stt_ms
         if "total_ms" in response["timings"]:
