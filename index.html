@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hacker House Goa · Voice-Enabled Multilingual RAG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,600;0,800;1,600&family=JetBrains+Mono:wght@400;500;600&family=Rozha+One&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --primary-green: #065f46;
+    --emerald-dark: #044332;
+    --emerald-vibrant: #10b981;
+    --emerald-light: #ecfdf5;
+    --accent-gold: #f59e0b;
+    --accent-yellow: #fbbf24;
+    --accent-pink: #ec4899;
+    --card-bg: rgba(255, 255, 255, 0.38);
+    --card-border: rgba(255, 255, 255, 0.65);
+    --card-shadow: 0 25px 50px -10px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.5);
+    --text-main: #064e3b;
+    --text-dark: #0f2e23;
+    --text-muted: #1e3a2f;
+    --input-bg: rgba(255, 255, 255, 0.65);
+    --good: #059669;
+    --bad: #e11d48;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    min-height: 100vh;
+    font-family: 'Outfit', sans-serif;
+    color: var(--text-dark);
+    background-color: #046637;
+    background-image: url('/static/assets/bg_sunrise.jpg');
+    background-size: cover;
+    background-position: center bottom;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    position: relative;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 24px 16px 80px 16px;
+  }
+
+  /* Natural side palm trees */
+  .palm-flank {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 20vw;
+    max-width: 260px;
+    min-width: 140px;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.95;
+    background-repeat: no-repeat;
+    transition: transform 0.3s ease;
+  }
+
+  .palm-left {
+    left: 0;
+    background-image: url('/static/assets/tree_left.png');
+    background-size: contain;
+    background-position: left center;
+    transform-origin: bottom left;
+    animation: gentleBreezeLeft 7s ease-in-out infinite alternate;
+  }
+
+  .palm-right {
+    right: 0;
+    background-image: url('/static/assets/tree_right.png');
+    background-size: contain;
+    background-position: right center;
+    transform-origin: bottom right;
+    animation: gentleBreezeRight 8s ease-in-out infinite alternate;
+  }
+
+  @keyframes gentleBreezeLeft {
+    0% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(1.2deg) scale(1.01); }
+    100% { transform: rotate(-0.8deg) scale(0.99); }
+  }
+
+  @keyframes gentleBreezeRight {
+    0% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(-1.5deg) scale(1.01); }
+    100% { transform: rotate(0.8deg) scale(0.99); }
+  }
+
+  /* Header & Branding Area */
+  .hero-header {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    max-width: 900px;
+    width: 100%;
+    margin-top: 10px;
+    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .brand-logo-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    position: relative;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .hacker-house-banner {
+    max-width: 480px;
+    width: 82vw;
+    height: auto;
+    filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.45));
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .hacker-house-banner:hover {
+    transform: scale(1.02);
+  }
+
+  /* Giggling Goa Hindi Sticker */
+  .goa-hindi-interactive {
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    display: inline-block;
+  }
+
+  .goa-sticker-img {
+    width: 100px;
+    height: auto;
+    filter: drop-shadow(0 10px 20px rgba(236, 72, 153, 0.4)) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform-origin: center bottom;
+    animation: gentleFloat 3s ease-in-out infinite;
+  }
+
+  @keyframes gentleFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-6px) rotate(2deg); }
+  }
+
+  /* GIGGLE JIGGLE ANIMATION ON TOUCH / HOVER */
+  .goa-hindi-interactive:hover .goa-sticker-img,
+  .goa-hindi-interactive.giggling .goa-sticker-img {
+    animation: giggleWobble 0.65s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite !important;
+  }
+
+  @keyframes giggleWobble {
+    0% { transform: scale(1.15) rotate(0deg); }
+    15% { transform: scale(1.2) rotate(-14deg) translateY(-4px); }
+    30% { transform: scale(1.25) rotate(14deg) translateY(-8px); }
+    45% { transform: scale(1.2) rotate(-10deg) translateY(-4px); }
+    60% { transform: scale(1.22) rotate(10deg) translateY(-6px); }
+    75% { transform: scale(1.16) rotate(-5deg) translateY(-2px); }
+    100% { transform: scale(1.15) rotate(0deg) translateY(0); }
+  }
+
+  .goa-tooltip {
+    position: absolute;
+    bottom: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.92);
+    color: #ec4899;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    opacity: 0.85;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .goa-hindi-interactive:hover .goa-tooltip {
+    opacity: 1;
+  }
+
+  .hero-tagline {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 6px 18px;
+    border-radius: 9999px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--primary-green);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    letter-spacing: 0.02em;
+  }
+
+  .hero-tagline .pill-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--emerald-vibrant);
+    box-shadow: 0 0 10px var(--emerald-vibrant);
+    animation: pulse 1.8s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.6; }
+  }
+
+  /* Main Glassmorphic Card Container (Translucent) */
+  .main-card {
+    position: relative;
+    z-index: 10;
+    max-width: 780px;
+    width: 100%;
+    background: var(--card-bg);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1.5px solid var(--card-border);
+    border-radius: 28px;
+    padding: 36px 36px;
+    box-shadow: var(--card-shadow);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  /* Language Selector Chips */
+  .lang-bar {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 26px;
+    flex-wrap: wrap;
+  }
+
+  .lang-btn {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(8px);
+    border: 1.5px solid rgba(255, 255, 255, 0.85);
+    color: var(--text-dark);
+    padding: 7px 16px;
+    border-radius: 9999px;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  }
+
+  .lang-btn:hover {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: var(--emerald-vibrant);
+    color: var(--primary-green);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.2);
+  }
+
+  .lang-btn.active {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    color: #ffffff;
+    border-color: #047857;
+    box-shadow: 0 6px 18px rgba(5, 150, 105, 0.4);
+  }
+
+  /* Microphone Interactive Center */
+  .mic-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 10px 0 28px 0;
+    position: relative;
+  }
+
+  .mic-btn-main {
+    width: 105px;
+    height: 105px;
+    border-radius: 50%;
+    border: 4px solid rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    background: linear-gradient(135deg, #10b981 0%, #059669 60%, #047857 100%);
+    color: white;
+    font-size: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 14px 30px rgba(5, 150, 105, 0.45), 0 0 0 8px rgba(255, 255, 255, 0.35);
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    outline: none;
+  }
+
+  .mic-btn-main:hover {
+    transform: scale(1.08);
+    box-shadow: 0 18px 40px rgba(5, 150, 105, 0.6), 0 0 0 12px rgba(255, 255, 255, 0.45);
+  }
+
+  .mic-btn-main:active {
+    transform: scale(0.95);
+  }
+
+  .mic-btn-main.recording {
+    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7);
+    animation: recordingPulse 1.4s infinite cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+
+  @keyframes recordingPulse {
+    0% {
+      transform: scale(1.05);
+      box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.6), 0 0 0 10px rgba(244, 63, 94, 0.3);
+    }
+    70% {
+      transform: scale(1.1);
+      box-shadow: 0 0 0 25px rgba(244, 63, 94, 0), 0 0 0 35px rgba(244, 63, 94, 0);
+    }
+    100% {
+      transform: scale(1.05);
+      box-shadow: 0 0 0 0 rgba(244, 63, 94, 0), 0 0 0 0 rgba(244, 63, 94, 0);
+    }
+  }
+
+  .mic-status-label {
+    margin-top: 16px;
+    font-size: 15px;
+    color: var(--primary-green);
+    font-weight: 700;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(8px);
+    padding: 4px 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    transition: color 0.2s;
+  }
+
+  /* Audio visualizer wave effect */
+  .visualizer-wave {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    height: 24px;
+    margin-top: 8px;
+  }
+
+  .visualizer-wave.active {
+    display: flex;
+  }
+
+  .visualizer-bar {
+    width: 4px;
+    background: var(--bad);
+    border-radius: 9999px;
+    animation: waveBar 0.8s ease-in-out infinite alternate;
+  }
+
+  .visualizer-bar:nth-child(1) { height: 8px; animation-delay: 0.1s; }
+  .visualizer-bar:nth-child(2) { height: 16px; animation-delay: 0.3s; }
+  .visualizer-bar:nth-child(3) { height: 24px; animation-delay: 0.5s; }
+  .visualizer-bar:nth-child(4) { height: 14px; animation-delay: 0.2s; }
+  .visualizer-bar:nth-child(5) { height: 20px; animation-delay: 0.4s; }
+  .visualizer-bar:nth-child(6) { height: 10px; animation-delay: 0.15s; }
+
+  @keyframes waveBar {
+    0% { transform: scaleY(0.3); }
+    100% { transform: scaleY(1); }
+  }
+
+  /* Divider */
+  .or-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 22px 0;
+    color: #1e3a2f;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .or-divider::before, .or-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1.5px dashed rgba(6, 95, 70, 0.35);
+  }
+
+  .or-divider span {
+    padding: 3px 14px;
+    background: rgba(255, 255, 255, 0.65);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    color: var(--primary-green);
+  }
+
+  /* Text Query Form */
+  .query-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .input-field {
+    flex: 1;
+    background: var(--input-bg);
+    backdrop-filter: blur(10px);
+    border: 1.5px solid rgba(255, 255, 255, 0.85);
+    border-radius: 16px;
+    padding: 14px 18px;
+    color: var(--text-dark);
+    font-size: 15px;
+    font-weight: 600;
+    outline: none;
+    font-family: inherit;
+    transition: all 0.2s;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+  }
+
+  .input-field::placeholder {
+    color: #52796f;
+  }
+
+  .input-field:focus {
+    border-color: var(--emerald-vibrant);
+    background: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.25);
+  }
+
+  .ask-button {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    color: white;
+    border: none;
+    border-radius: 16px;
+    padding: 0 26px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 6px 18px rgba(5, 150, 105, 0.35);
+  }
+
+  .ask-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(5, 150, 105, 0.5);
+  }
+
+  .ask-button:active {
+    transform: translateY(1px);
+  }
+
+  /* Sample Suggested Chips */
+  .quick-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+
+  .suggestion-pill {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    color: #064e3b;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 13px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.18s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  }
+
+  .suggestion-pill:hover {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: var(--emerald-vibrant);
+    color: var(--primary-green);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  }
+
+  /* Result Card Styling (Translucent Frosted) */
+  .result-panel {
+    display: none;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1.5px solid rgba(255, 255, 255, 0.85);
+    border-radius: 22px;
+    padding: 24px 26px;
+    margin-top: 14px;
+    box-shadow: 0 16px 36px rgba(4, 67, 50, 0.12);
+    animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .result-panel.active {
+    display: block;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .badge-grounded {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    border-radius: 9999px;
+    font-size: 12.5px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+
+  .badge-grounded.pass {
+    background: rgba(209, 250, 229, 0.9);
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+  }
+
+  .badge-grounded.refused {
+    background: rgba(255, 228, 230, 0.9);
+    color: #9f1239;
+    border: 1px solid #fecdd3;
+  }
+
+  .section-label {
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #334e44;
+    margin-bottom: 6px;
+  }
+
+  .query-echo {
+    font-size: 15.5px;
+    font-weight: 600;
+    color: var(--text-dark);
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(8px);
+    border-left: 3.5px solid var(--emerald-vibrant);
+    padding: 10px 14px;
+    border-radius: 0 10px 10px 0;
+    margin-bottom: 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.8);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.8);
+    border-right: 1px solid rgba(255, 255, 255, 0.8);
+  }
+
+  .answer-header-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .lang-translation-tabs {
+    display: flex;
+    gap: 4px;
+    background: rgba(241, 245, 249, 0.75);
+    backdrop-filter: blur(8px);
+    padding: 3px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+  }
+
+  .trans-tab {
+    background: transparent;
+    border: none;
+    color: #475569;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+
+  .trans-tab:hover {
+    color: var(--primary-green);
+  }
+
+  .trans-tab.active {
+    background: #ffffff;
+    color: var(--primary-green);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .answer-card-content {
+    font-size: 15.5px;
+    line-height: 1.65;
+    color: #0f172a;
+    font-weight: 500;
+    background: rgba(236, 253, 245, 0.75);
+    backdrop-filter: blur(10px);
+    padding: 16px 18px;
+    border-radius: 14px;
+    border: 1.5px solid rgba(167, 243, 208, 0.8);
+    min-height: 54px;
+    margin-bottom: 20px;
+  }
+
+  /* Metric Latency Tiles */
+  .metrics-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    padding-top: 18px;
+    border-top: 1.5px dashed rgba(6, 95, 70, 0.25);
+  }
+
+  .metric-card {
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    border-radius: 14px;
+    padding: 10px 12px;
+    text-align: center;
+    transition: transform 0.15s;
+  }
+
+  .metric-card:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.85);
+  }
+
+  .metric-title {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .metric-val {
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--primary-green);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 3px;
+  }
+
+  .metric-val.total-highlight {
+    color: #0284c7;
+  }
+
+  /* Retrieved Context Chunks Expandable */
+  .context-sources-area {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed #cbd5e1;
+  }
+
+  .context-toggle-btn {
+    background: none;
+    border: none;
+    color: var(--primary-green);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: inherit;
+  }
+
+  .context-toggle-btn:hover {
+    text-decoration: underline;
+  }
+
+  .context-list {
+    display: none;
+    margin-top: 12px;
+  }
+
+  .context-list.show {
+    display: block;
+  }
+
+  .context-item {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 3.5px solid var(--emerald-vibrant);
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #334155;
+    line-height: 1.5;
+  }
+
+  /* Responsive styling */
+  @media (max-width: 860px) {
+    .palm-flank {
+      width: 14vw;
+      min-width: 80px;
+      opacity: 0.8;
+    }
+    .main-card {
+      padding: 24px 20px;
+    }
+    .hacker-house-banner {
+      width: 88vw;
+    }
+    .goa-sticker-img {
+      width: 75px;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .palm-flank {
+      display: none;
+    }
+    .metrics-row {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- Left & Right Flanking Palm Trees -->
+<div class="palm-flank palm-left" aria-hidden="true"></div>
+<div class="palm-flank palm-right" aria-hidden="true"></div>
+
+<!-- Top Branding & Interactive Header -->
+<header class="hero-header">
+  <div class="brand-logo-wrap">
+    <!-- Hacker House Luxury Banner -->
+    <img src="/static/assets/hacker_house.png" alt="Hacker House" class="hacker-house-banner" />
+
+    <!-- Interactive Giggling Goa Hindi Sticker -->
+    <div class="goa-hindi-interactive" id="goaSticker" title="Click or touch me to giggle!" onclick="triggerGiggle(event)">
+      <img src="/static/assets/goa_hindi_sticker.png" alt="गोवा (Goa)" class="goa-sticker-img" id="goaStickerImg" />
+      <span class="goa-tooltip">Touch me! ✨</span>
+    </div>
+  </div>
+
+  <div class="hero-tagline">
+    <span class="pill-dot"></span>
+    <span>Voice-Enabled Multilingual RAG · Real-time Indic AI</span>
+    <span id="apiConfigBadge" style="margin-left:8px; padding:2px 8px; background:rgba(255,255,255,0.7); border-radius:12px; cursor:pointer; font-size:11px;" onclick="setBackendUrl()">⚙️ API: Direct</span>
+  </div>
+</header>
+
+<!-- Main Glass Application Card -->
+<main class="main-card">
+  <!-- Input Language Selection -->
+  <div class="lang-bar" id="inputLanguageBar">
+    <button class="lang-btn active" data-lang="">🌐 Auto Detect</button>
+    <button class="lang-btn" data-lang="en">🇬🇧 English</button>
+    <button class="lang-btn" data-lang="hi">🇮🇳 हिन्दी (Hindi)</button>
+    <button class="lang-btn" data-lang="te">🇮🇳 తెలుగు (Telugu)</button>
+    <button class="lang-btn" data-lang="ta">🇮🇳 தமிழ் (Tamil)</button>
+  </div>
+
+  <!-- Voice Input Action Center -->
+  <div class="mic-stage">
+    <button class="mic-btn-main" id="micBtn" title="Click to speak your question" aria-label="Microphone">
+      🎙️
+    </button>
+    <div class="mic-status-label" id="micStatusText">Tap microphone to speak your question</div>
+    <div class="visualizer-wave" id="visualizerWave">
+      <div class="visualizer-bar"></div>
+      <div class="visualizer-bar"></div>
+      <div class="visualizer-bar"></div>
+      <div class="visualizer-bar"></div>
+      <div class="visualizer-bar"></div>
+      <div class="visualizer-bar"></div>
+    </div>
+  </div>
+
+  <div class="or-divider"><span>or type your question below</span></div>
+
+  <!-- Text Input Form -->
+  <form class="query-form" id="queryTextForm">
+    <input 
+      type="text" 
+      class="input-field" 
+      id="queryInput" 
+      placeholder="Ask in English, Hindi (हिन्दी), Telugu (తెలుగు), Tamil (தமிழ்)..." 
+      autocomplete="off"
+    />
+    <button type="submit" class="ask-button" id="submitBtn">
+      <span>Ask AI</span> ➔
+    </button>
+  </form>
+
+  <!-- Suggested Prompt Pills -->
+  <div class="quick-chips">
+    <span class="suggestion-pill" onclick="runPrompt('What is a statutory audit?')">
+      💡 "What is a statutory audit?"
+    </span>
+    <span class="suggestion-pill" onclick="runPrompt('What was the Manhattan project?')">
+      💡 "What was the Manhattan project?"
+    </span>
+    <span class="suggestion-pill" onclick="runPrompt('కంపెనీ వాటాదారులు ఎవరు?')">
+      🇮🇳 "కంపెనీ వాటాదారులు..." (Telugu)
+    </span>
+    <span class="suggestion-pill" onclick="runPrompt('वैधानिक लेखापरीक्षा क्या है?')">
+      🇮🇳 "वैधानिक लेखापरीक्षा..." (Hindi)
+    </span>
+  </div>
+
+  <!-- Result & Latency Display Panel -->
+  <div class="result-panel" id="resultPanel">
+    <div id="groundingBadgeSlot"></div>
+
+    <div class="section-label">Your Question (Transcribed / Input)</div>
+    <div class="query-echo" id="transcriptionDisplay"></div>
+
+    <div class="answer-header-wrap">
+      <div class="section-label">Generated Grounded Answer</div>
+      <div class="lang-translation-tabs" id="transTabs">
+        <button class="trans-tab active" data-lang="orig">Original</button>
+        <button class="trans-tab" data-lang="en">English</button>
+        <button class="trans-tab" data-lang="hi">हिन्दी</button>
+        <button class="trans-tab" data-lang="te">తెలుగు</button>
+        <button class="trans-tab" data-lang="ta">தமிழ்</button>
+      </div>
+    </div>
+    <div class="answer-card-content" id="answerDisplay"></div>
+
+    <!-- Precision Latency Breakdown Tiles -->
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="metric-title">STT Audio</div>
+        <div class="metric-val" id="metricStt">—</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-title">Vector Search</div>
+        <div class="metric-val" id="metricRetr">—</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-title">LLM Gen</div>
+        <div class="metric-val" id="metricGen">—</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-title">Total Wall</div>
+        <div class="metric-val total-highlight" id="metricTotal">—</div>
+      </div>
+    </div>
+
+    <!-- Retrieved Chunks Context Box -->
+    <div class="context-sources-area" id="sourcesArea" style="display:none;">
+      <button type="button" class="context-toggle-btn" id="contextToggleBtn">
+        ▸ View Retrieved FAISS + BM25 Context Chunks
+      </button>
+      <div class="context-list" id="contextList"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+  let activeLanguage = "";
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let isRecording = false;
+  let latestResult = null;
+
+  const micBtn = document.getElementById('micBtn');
+  const micStatusText = document.getElementById('micStatusText');
+  const visualizerWave = document.getElementById('visualizerWave');
+  const queryTextForm = document.getElementById('queryTextForm');
+  const queryInput = document.getElementById('queryInput');
+  const resultPanel = document.getElementById('resultPanel');
+  const groundingBadgeSlot = document.getElementById('groundingBadgeSlot');
+  const transcriptionDisplay = document.getElementById('transcriptionDisplay');
+  const answerDisplay = document.getElementById('answerDisplay');
+  const metricStt = document.getElementById('metricStt');
+  const metricRetr = document.getElementById('metricRetr');
+  const metricGen = document.getElementById('metricGen');
+  const metricTotal = document.getElementById('metricTotal');
+  const sourcesArea = document.getElementById('sourcesArea');
+  const contextToggleBtn = document.getElementById('contextToggleBtn');
+  const contextList = document.getElementById('contextList');
+  const goaSticker = document.getElementById('goaSticker');
+
+  // Interactive Giggle Mechanism with Web Audio API playful giggle sound
+  let audioCtx = null;
+  function playGiggleChime() {
+    try {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      
+      const freqs = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+      freqs.forEach((freq, idx) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq + (Math.random() * 40 - 20), audioCtx.currentTime + idx * 0.07);
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime + idx * 0.07);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + idx * 0.07 + 0.18);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(audioCtx.currentTime + idx * 0.07);
+        osc.stop(audioCtx.currentTime + idx * 0.07 + 0.19);
+      });
+    } catch (e) {
+      // Audio context might be restricted before interaction
+    }
+  }
+
+  function triggerGiggle(e) {
+    playGiggleChime();
+    goaSticker.classList.remove('giggling');
+    void goaSticker.offsetWidth; // trigger reflow
+    goaSticker.classList.add('giggling');
+    setTimeout(() => {
+      goaSticker.classList.remove('giggling');
+    }, 1200);
+  }
+
+  // Language buttons
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeLanguage = btn.dataset.lang;
+    });
+  });
+
+  // Translation Tabs
+  document.querySelectorAll('.trans-tab').forEach(tab => {
+    tab.addEventListener('click', async () => {
+      document.querySelectorAll('.trans-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const lang = tab.dataset.lang;
+      await translateResult(lang);
+    });
+  });
+
+  // Backend API URL configuration (useful for Vercel deployment)
+  let backendUrl = localStorage.getItem('RAG_BACKEND_URL') || '';
+  
+  function getApiUrl(endpoint) {
+    if (backendUrl && backendUrl.trim()) {
+      return backendUrl.trim().replace(/\/+$/, '') + endpoint;
+    }
+    return endpoint;
+  }
+
+  function setBackendUrl() {
+    const current = backendUrl || window.location.origin;
+    const input = prompt('Enter your Backend API URL (e.g. https://your-backend.up.railway.app):', current);
+    if (input !== null) {
+      backendUrl = input.trim();
+      if (backendUrl) {
+        localStorage.setItem('RAG_BACKEND_URL', backendUrl);
+      } else {
+        localStorage.removeItem('RAG_BACKEND_URL');
+      }
+      updateApiStatusBadge();
+    }
+  }
+
+  function updateApiStatusBadge() {
+    const badge = document.getElementById('apiConfigBadge');
+    if (badge) {
+      if (backendUrl) {
+        badge.innerHTML = `⚙️ API: <span style="color:#059669; font-weight:700;">Remote</span>`;
+        badge.title = `Connected to: ${backendUrl} (Click to change)`;
+      } else {
+        badge.innerHTML = `⚙️ API: <span style="color:#64748b;">Direct</span>`;
+        badge.title = `Connected to current origin (Click to set custom backend URL)`;
+      }
+    }
+  }
+
+  async function translateResult(lang) {
+    if (!latestResult || !latestResult.answer) return;
+    if (!latestResult.translations) latestResult.translations = {};
+
+    if (lang === 'orig') {
+      answerDisplay.textContent = latestResult.answer;
+      return;
+    }
+
+    if (latestResult.translations[lang]) {
+      answerDisplay.textContent = latestResult.translations[lang];
+      return;
+    }
+
+    const currentText = answerDisplay.textContent;
+    answerDisplay.innerHTML = '<span style="color:var(--text-muted); font-style:italic;">Translating answer into selected language...</span>';
+
+    try {
+      const res = await fetch(getApiUrl('/translate'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: latestResult.answer,
+          target_language: lang
+        })
+      });
+      const data = await res.json();
+      const translated = data.translated_text || latestResult.answer;
+      latestResult.translations[lang] = translated;
+      answerDisplay.textContent = translated;
+    } catch (err) {
+      answerDisplay.textContent = currentText;
+    }
+  }
+
+  function runPrompt(text) {
+    queryInput.value = text;
+    queryTextForm.dispatchEvent(new Event('submit'));
+  }
+
+  contextToggleBtn.addEventListener('click', () => {
+    const isShowing = contextList.classList.toggle('show');
+    contextToggleBtn.textContent = isShowing 
+      ? '▾ Hide Retrieved FAISS + BM25 Context Chunks' 
+      : '▸ View Retrieved FAISS + BM25 Context Chunks';
+  });
+
+  // Voice Interaction
+  micBtn.addEventListener('click', async () => {
+    if (!isRecording) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = handleVoiceSubmit;
+        mediaRecorder.start();
+        isRecording = true;
+        micBtn.classList.add('recording');
+        visualizerWave.classList.add('active');
+        micStatusText.textContent = 'Listening... tap microphone when finished speaking';
+        resultPanel.classList.remove('active');
+      } catch (err) {
+        micStatusText.textContent = 'Microphone permission denied or unavailable';
+      }
+    } else {
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(t => t.stop());
+      isRecording = false;
+      micBtn.classList.remove('recording');
+      visualizerWave.classList.remove('active');
+      micStatusText.textContent = 'Processing speech & searching knowledge base...';
+    }
+  });
+
+  async function handleVoiceSubmit() {
+    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'speech.webm');
+    if (activeLanguage) {
+      formData.append('language', activeLanguage);
+    }
+
+    try {
+      const res = await fetch(getApiUrl('/ask-voice'), { method: 'POST', body: formData });
+      const data = await res.json();
+      renderResponse(data);
+      micStatusText.textContent = 'Tap microphone to speak your question';
+    } catch (e) {
+      micStatusText.textContent = 'Voice request failed. Please check server connection / API URL.';
+    }
+  }
+
+  // Text Query Form
+  queryTextForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const query = queryInput.value.trim();
+    if (!query) return;
+
+    micStatusText.textContent = 'Searching index & synthesizing answer...';
+    resultPanel.classList.remove('active');
+
+    try {
+      const res = await fetch(getApiUrl('/ask-text'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: query, language: activeLanguage || null })
+      });
+      const data = await res.json();
+      renderResponse({ ...data, transcript: query });
+      micStatusText.textContent = 'Tap microphone to speak your question';
+    } catch (e) {
+      micStatusText.textContent = 'Error connecting to RAG backend server. Check API URL.';
+    }
+  });
+
+  function renderResponse(data) {
+    latestResult = data;
+    resultPanel.classList.add('active');
+    transcriptionDisplay.textContent = data.transcript || '(No transcript)';
+
+    // Reset tabs
+    document.querySelectorAll('.trans-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('.trans-tab[data-lang="orig"]').classList.add('active');
+    answerDisplay.textContent = data.answer || '(No response)';
+
+    // Grounding badge
+    if (data.grounded) {
+      groundingBadgeSlot.innerHTML = '<span class="badge-grounded pass">✓ Grounded Context Answer</span>';
+    } else {
+      const reason = data.refusal_reason ? ` (${data.refusal_reason})` : '';
+      groundingBadgeSlot.innerHTML = `<span class="badge-grounded refused">✗ Refusal / Guardrail Blocked${reason}</span>`;
+    }
+
+    // Stage Timings
+    const t = data.timings || {};
+    metricStt.textContent = t.stt_ms !== undefined ? `${Math.round(t.stt_ms)}ms` : 'N/A';
+    metricRetr.textContent = t.retrieval_ms !== undefined ? `${Math.round(t.retrieval_ms)}ms` : '—';
+    metricGen.textContent = t.generation_ms !== undefined ? `${Math.round(t.generation_ms)}ms` : '—';
+    metricTotal.textContent = t.total_ms !== undefined ? `${Math.round(t.total_ms)}ms` : '—';
+
+    // Context chunks
+    if (data.sources && data.sources.length > 0) {
+      sourcesArea.style.display = 'block';
+      contextList.innerHTML = data.sources.map(s => `
+        <div class="context-item">
+          <strong>[${s.chunk_id}]</strong> (Score: ${s.score})<br>${s.text}
+        </div>
+      `).join('');
+    } else {
+      sourcesArea.style.display = 'none';
+    }
+
+    // Smooth scroll to result
+    resultPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // Initialize status badge
+  updateApiStatusBadge();
+</script>
+</body>
+</html>

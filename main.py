@@ -72,6 +72,14 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    fav_path = os.path.join(STATIC_DIR, "favicon.ico")
+    if os.path.exists(fav_path):
+        return FileResponse(fav_path)
+    return FileResponse(os.path.join(os.path.dirname(__file__), "favicon.ico"))
+
+
 @app.on_event("startup")
 def warm_up_models():
     """Pre-warms FAISS, BM25, and neural models into memory at server startup."""
@@ -133,5 +141,5 @@ def ask_voice(file: UploadFile = File(...), language: Optional[str] = Form(None)
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8000))
-    print(f"Starting Voice RAG server on port {port} ...")
+    print(f"Starting Voice RAG server on http://127.0.0.1:{port} ...")
     uvicorn.run(app, host="0.0.0.0", port=port)
