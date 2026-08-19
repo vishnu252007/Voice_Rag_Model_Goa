@@ -969,23 +969,34 @@
   });
 
   // Backend API URL configuration (useful for Vercel deployment)
+  function normalizeUrl(url) {
+    if (!url || !url.trim()) return '';
+    let clean = url.trim();
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = 'https://' + clean;
+    }
+    return clean.replace(/\/+$/, '');
+  }
+
   let backendUrl = localStorage.getItem('RAG_BACKEND_URL') || '';
+  if (backendUrl) backendUrl = normalizeUrl(backendUrl);
   
   function getApiUrl(endpoint) {
     if (backendUrl && backendUrl.trim()) {
-      return backendUrl.trim().replace(/\/+$/, '') + endpoint;
+      return normalizeUrl(backendUrl) + endpoint;
     }
     return endpoint;
   }
 
   function setBackendUrl() {
-    const current = backendUrl || window.location.origin;
-    const input = prompt('Enter your Backend API URL (e.g. https://your-backend.up.railway.app):', current);
+    const current = backendUrl ? normalizeUrl(backendUrl) : '';
+    const input = prompt('Enter your Backend API URL (e.g. https://your-app.up.railway.app):', current);
     if (input !== null) {
-      backendUrl = input.trim();
-      if (backendUrl) {
+      if (input.trim()) {
+        backendUrl = normalizeUrl(input);
         localStorage.setItem('RAG_BACKEND_URL', backendUrl);
       } else {
+        backendUrl = '';
         localStorage.removeItem('RAG_BACKEND_URL');
       }
       updateApiStatusBadge();
