@@ -726,27 +726,212 @@
   /* Responsive styling */
   @media (max-width: 860px) {
     .palm-flank {
-      width: 14vw;
-      min-width: 80px;
-      opacity: 0.8;
+      width: 12vw;
+      min-width: 70px;
+      opacity: 0.65;
     }
     .main-card {
-      padding: 24px 20px;
+      padding: 26px 20px;
     }
     .hacker-house-banner {
-      width: 88vw;
+      width: 70vw;
+      max-width: 380px;
     }
     .goa-sticker-img {
-      width: 75px;
+      width: 70px;
     }
   }
 
-  @media (max-width: 600px) {
-    .palm-flank {
-      display: none;
+  @media (max-width: 640px) {
+    body {
+      padding: 12px 10px 40px 10px;
     }
+
+    .palm-flank {
+      display: none !important;
+    }
+
+    .hero-header {
+      margin-top: 4px;
+      margin-bottom: 14px;
+      width: 100%;
+    }
+
+    .brand-logo-wrap {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      margin-bottom: 6px;
+    }
+
+    .hacker-house-banner {
+      max-width: 240px;
+      width: 66vw;
+      height: auto;
+    }
+
+    .goa-sticker-img {
+      width: 52px;
+      height: auto;
+    }
+
+    .hero-tagline {
+      font-size: 11px;
+      padding: 5px 12px;
+      gap: 6px;
+      width: auto;
+      max-width: 96vw;
+      justify-content: center;
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    .main-card {
+      padding: 18px 14px;
+      border-radius: 20px;
+      width: 100%;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Language Selection Grid on Mobile */
+    .lang-bar {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      width: 100%;
+      margin-bottom: 18px;
+    }
+
+    .lang-btn {
+      width: 100%;
+      justify-content: center;
+      padding: 8px 6px;
+      font-size: 12px;
+      border-radius: 12px;
+      gap: 4px;
+    }
+
+    /* Centered Microphone */
+    .mic-stage {
+      margin: 2px 0 16px 0;
+    }
+
+    .mic-btn-main {
+      width: 82px;
+      height: 82px;
+      font-size: 34px;
+    }
+
+    .mic-status-label {
+      font-size: 12.5px;
+      padding: 4px 12px;
+      max-width: 95%;
+      margin-top: 12px;
+    }
+
+    .or-divider {
+      margin: 16px 0;
+      font-size: 11px;
+    }
+
+    /* Clean Aligned Query Form (No Overlap) */
+    .query-form {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      margin-bottom: 12px;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 13px 14px;
+      font-size: 13.5px;
+      border-radius: 14px;
+    }
+
+    .ask-button {
+      width: 100%;
+      height: 46px;
+      justify-content: center;
+      font-size: 14.5px;
+      border-radius: 14px;
+      padding: 0;
+    }
+
+    /* Clean Stacked Quick Chips */
+    .quick-chips {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+      margin-bottom: 16px;
+    }
+
+    .suggestion-pill {
+      width: 100%;
+      font-size: 12px;
+      padding: 9px 12px;
+      border-radius: 12px;
+      justify-content: flex-start;
+      text-align: left;
+      line-height: 1.35;
+    }
+
+    /* Result Panel & Translation Tabs */
+    .result-panel {
+      padding: 16px 14px;
+      border-radius: 18px;
+      margin-top: 12px;
+    }
+
+    .answer-header-wrap {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+
+    .lang-translation-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 3px;
+      width: 100%;
+      padding: 2px;
+    }
+
+    .trans-tab {
+      padding: 6px 2px;
+      font-size: 11px;
+      text-align: center;
+      justify-content: center;
+    }
+
+    .answer-card-content {
+      font-size: 14px;
+      padding: 12px 14px;
+      line-height: 1.6;
+    }
+
     .metrics-row {
       grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      padding-top: 12px;
+    }
+
+    .metric-card {
+      padding: 8px 10px;
+      border-radius: 10px;
+    }
+
+    .metric-title {
+      font-size: 9.5px;
+    }
+
+    .metric-val {
+      font-size: 13.5px;
     }
   }
 </style>
