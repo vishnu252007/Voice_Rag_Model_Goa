@@ -122,14 +122,15 @@ def vector_search(query: str, top_k: int = 10, language_filter: str = None) -> L
         if idx == -1 or idx >= len(_metadata):
             continue
         item = _metadata[idx]
-        if language_filter and item["metadata"].get("language") != language_filter:
+        item_lang = item.get("language") or item.get("metadata", {}).get("language")
+        if language_filter and item_lang != language_filter:
             continue
         results.append({
-            "text": item["text"],
-            "chunk_id": item["chunk_id"],
-            "doc_id": item["doc_id"],
+            "text": item.get("text", ""),
+            "chunk_id": item.get("chunk_id", ""),
+            "doc_id": item.get("doc_id", ""),
             "score": float(score),
-            "metadata": item["metadata"],
+            "metadata": item.get("metadata", {"language": item_lang or "en"}),
         })
         if len(results) >= top_k:
             break
