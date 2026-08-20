@@ -59,8 +59,14 @@ def main():
     args = parser.parse_args()
 
     file_prefix = LANGUAGE_TO_FILE_PREFIX.get(args.language, "hin")
-    suffix = "train" if args.split == "train" else "val"
-    remote_filename = f"{args.split}/{file_prefix}{suffix}.parquet"
+    split = args.split
+
+    # AI4Bharat uploaded Telugu under validation split (97,941 rows available)
+    if args.language == "te" and split == "train":
+        split = "validation"
+
+    suffix = "train" if split == "train" else "val"
+    remote_filename = f"{split}/{file_prefix}{suffix}.parquet"
 
     print(f"Fetching dataset split: {remote_filename} from ai4bharat/MSMARCO-XI...")
     local_path = hf_hub_download(
