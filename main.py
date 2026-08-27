@@ -21,6 +21,7 @@ from contextlib import asynccontextmanager
 from typing import Optional
 import shutil
 import tempfile
+import threading
 
 from stt import transcribe_audio
 from harness import answer_query
@@ -36,14 +37,18 @@ def _normalize_language_code(sarvam_code: str) -> Optional[str]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Pre-warms FAISS, BM25, and neural models into memory at server startup."""
-    try:
-        print("Pre-warming vector store and language models...")
-        answer_query("warmup initialization query", language_filter=None)
-        print("Warm-up complete.")
-    except Exception as e:
-        print(f"Warm-up skipped: {e}")
+    """Starts server instantly and pre-warms models in background daemon thread."""
+    def _warm():
+        try:
+            print("Pre-warming vector store and language models in background...")
+            answer_query("warmup initialization query", language_filter=None)
+            print("Background warm-up complete.")
+        except Exception as e:
+            print(f"Background warm-up notice: {e}")
+
+    threading.Thread(target=_warm, daemon=True).start()
     yield
+
 
 
 app = FastAPI(title="HH Goa 2026 - Voice RAG", lifespan=lifespan)
