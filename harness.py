@@ -34,13 +34,13 @@ def _cache_put(key, value):
 
 
 def _refusal(reason: str, stage: str, language: str = None) -> dict:
-    default_msg = "I do not have sufficient information to answer this question from the indexed dataset."
+    default_msg = "This question is out of context with respect to the indexed dataset/knowledge base."
     if language == "hi":
-        default_msg = "दिए गए संदर्भ से इस प्रश्न का उत्तर देने के लिए पर्याप्त जानकारी उपलब्ध नहीं है।"
+        default_msg = "यह प्रश्न दिए गए ज्ञान आधार/डेटा के संदर्भ से बाहर है (Out of Context)।"
     elif language == "te":
-        default_msg = "అందించిన డేటా నుండి ఈ ప్రశ్నకు సమాధానం ఇవ్వడానికి తగినంత సమాచారం లేదు."
+        default_msg = "ఈ ప్రశ్న అందించిన డేటా / పరిధికి వెలుపల ఉంది (Out of Context)."
     elif language == "ta":
-        default_msg = "வழங்கப்பட்ட தரவிலிருந்து இந்த கேள்விக்கு பதிலளிக்க போதுமான தகவல் இல்லை."
+        default_msg = "இந்த கேள்வி வழங்கப்பட்ட தரவு/அறிவின் சூழலுக்கு அப்பாற்பட்டது (Out of Context)."
 
     return {
         "answer": default_msg,

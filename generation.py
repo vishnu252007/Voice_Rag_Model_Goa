@@ -72,7 +72,7 @@ def _fast_synthesize(query: str, chunks: list) -> dict:
     """In-process ultra-fast (<1ms) grounded answer extraction directly from top chunks with strict relevance validation."""
     if not chunks:
         return {
-            "answer": "I do not have sufficient information in the provided context to answer this question.",
+            "answer": "This question is out of context with respect to the indexed dataset/knowledge base.",
             "grounded": False,
             "used_chunk_ids": [],
         }
@@ -81,9 +81,14 @@ def _fast_synthesize(query: str, chunks: list) -> dict:
         'what', 'is', 'the', 'a', 'an', 'in', 'on', 'of', 'for', 'to', 'how',
         'do', 'does', 'and', 'or', 'by', 'with', 'from', 'at', 'this', 'that',
         'these', 'those', 'it', 'its', 'as', 'are', 'was', 'were', 'be', 'been',
-        'kya', 'hai', 'ka', 'ki', 'ke', 'mein', 'se', 'ko', 'find'
+        'kya', 'hai', 'ka', 'ki', 'ke', 'mein', 'se', 'ko', 'find',
+        'tell', 'me', 'about', 'know', 'explain', 'describe', 'give', 'information',
+        'details', 'who', 'where', 'when', 'why', 'can', 'you', 'please',
+        'batao', 'bataiye', 'kaho', 'cheppandi', 'teliyacheyandi', 'enti'
     }
-    q_words = [w for w in re.findall(r'\w+', query.lower()) if w not in stopwords]
+    q_words = [w for w in re.findall(r'\w+', query.lower()) if w not in stopwords and len(w) > 1]
+    if not q_words:
+        q_words = [w for w in re.findall(r'\w+', query.lower()) if len(w) > 2]
     if not q_words:
         q_words = re.findall(r'\w+', query.lower())
 
@@ -99,10 +104,10 @@ def _fast_synthesize(query: str, chunks: list) -> dict:
             best_score = score
             best_chunk = c
 
-    # Require comprehensive match of query terms (>= 0.75) for grounding
+    # Require comprehensive match of non-stopword query terms (>= 0.75) for grounding
     if best_score < 0.75 or not best_chunk:
         return {
-            "answer": "I do not have sufficient information in the provided context to answer this question.",
+            "answer": "This question is out of context with respect to the indexed dataset/knowledge base.",
             "grounded": False,
             "used_chunk_ids": [],
         }
