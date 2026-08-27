@@ -17,12 +17,12 @@ SARVAM_API_KEY = _get_clean_env("SARVAM_API_KEY", "")
 # --- Generation Mode ---
 # "llm"  = intelligent grounded generation via Groq Qwen (high quality, semantic validation)
 # "fast" = in-process fast synthesis for high-throughput benchmarks
-GENERATION_MODE = _get_clean_env("GENERATION_MODE", "llm").lower()
+GENERATION_MODE = _get_clean_env("GENERATION_MODE", "fast").lower()
 
 # --- LLM for generation ---
 LLM_PROVIDER = _get_clean_env("LLM_PROVIDER", "groq").lower()
 GROQ_API_KEY = _get_clean_env("GROQ_API_KEY", "")
-GROQ_MODEL = _get_clean_env("GROQ_MODEL", "qwen/qwen3.6-27b")
+GROQ_MODEL = _get_clean_env("GROQ_MODEL", "qwen/qwen3.8-27b")
 GEMINI_API_KEY = _get_clean_env("GEMINI_API_KEY", "")
 GEMINI_MODEL = _get_clean_env("GEMINI_MODEL", "gemini-1.5-flash")
 

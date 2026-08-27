@@ -833,59 +833,90 @@
     }
 
     .or-divider {
-      margin: 16px 0;
+      margin: 22px 0;
       font-size: 11px;
     }
 
-    /* Clean Aligned Query Form (No Overlap) */
+    /* ChatGPT-style unified chatbox pill on mobile */
     .query-form {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      background: rgba(255, 255, 255, 0.92) !important;
+      backdrop-filter: blur(14px) !important;
+      -webkit-backdrop-filter: blur(14px) !important;
+      border: 1.5px solid rgba(6, 95, 70, 0.3) !important;
+      border-radius: 9999px !important;
+      padding: 4px 6px 4px 16px !important;
+      box-shadow: 0 4px 16px rgba(4, 67, 50, 0.12) !important;
+      gap: 6px !important;
+      margin-bottom: 22px !important;
+      width: 100% !important;
+    }
+
+    .input-field {
+      flex: 1 !important;
+      width: 100% !important;
+      border: none !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      padding: 10px 0 !important;
+      font-size: 14px !important;
+      color: #0f172a !important;
+      outline: none !important;
+    }
+
+    .input-field::placeholder {
+      font-size: 12.5px !important;
+      color: #64748b !important;
+    }
+
+    .ask-button {
+      width: 40px !important;
+      height: 40px !important;
+      min-width: 40px !important;
+      border-radius: 50% !important;
+      padding: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35) !important;
+      cursor: pointer !important;
+      border: none !important;
+      font-size: 16px !important;
+      color: #ffffff !important;
+    }
+
+    .ask-button span {
+      display: none !important;
+    }
+
+    /* Clean Stacked Quick Chips with spacing */
+    .quick-chips {
       display: flex;
       flex-direction: column;
       gap: 8px;
       width: 100%;
-      margin-bottom: 12px;
-    }
-
-    .input-field {
-      width: 100%;
-      padding: 13px 14px;
-      font-size: 13.5px;
-      border-radius: 14px;
-    }
-
-    .ask-button {
-      width: 100%;
-      height: 46px;
-      justify-content: center;
-      font-size: 14.5px;
-      border-radius: 14px;
-      padding: 0;
-    }
-
-    /* Clean Stacked Quick Chips */
-    .quick-chips {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      width: 100%;
-      margin-bottom: 16px;
+      margin-bottom: 22px;
     }
 
     .suggestion-pill {
       width: 100%;
-      font-size: 12px;
-      padding: 9px 12px;
-      border-radius: 12px;
+      font-size: 12.5px;
+      padding: 10px 14px;
+      border-radius: 14px;
       justify-content: flex-start;
       text-align: left;
       line-height: 1.35;
+      background: rgba(255, 255, 255, 0.75);
     }
 
     /* Result Panel & Translation Tabs */
     .result-panel {
-      padding: 16px 14px;
-      border-radius: 18px;
-      margin-top: 12px;
+      padding: 20px 16px;
+      border-radius: 20px;
+      margin-top: 22px;
     }
 
     .answer-header-wrap {
@@ -911,19 +942,19 @@
 
     .answer-card-content {
       font-size: 14px;
-      padding: 12px 14px;
+      padding: 14px 14px;
       line-height: 1.6;
     }
 
     .metrics-row {
       grid-template-columns: repeat(2, 1fr);
-      gap: 6px;
-      padding-top: 12px;
+      gap: 8px;
+      padding-top: 14px;
     }
 
     .metric-card {
-      padding: 8px 10px;
-      border-radius: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
     }
 
     .metric-title {
@@ -931,7 +962,7 @@
     }
 
     .metric-val {
-      font-size: 13.5px;
+      font-size: 14px;
     }
   }
 </style>
