@@ -46,6 +46,17 @@ def save_bm25_index(filepath: str = "bm25_index.pkl"):
     print(f"Saved inverted BM25 index ({len(_bm25_corpus)} chunks) to {filepath}")
 
 
+def _is_lfs_pointer(path: str) -> bool:
+    try:
+        if os.path.exists(path) and os.path.getsize(path) < 1000:
+            with open(path, "rb") as f:
+                head = f.read(100)
+            return b"version https://git-lfs" in head
+    except Exception:
+        pass
+    return False
+
+
 def _try_autoload_bm25():
     """Autoloads pre-built inverted BM25 index from cache if available."""
     global _bm25_corpus, _postings, _doc_lens, _idf, _avgdl
