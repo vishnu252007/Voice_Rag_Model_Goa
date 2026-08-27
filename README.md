@@ -67,16 +67,16 @@ python run_benchmark.py --languages en,hi,te --n 17
 
 Measured across 51 real queries from the MSMARCO-XI dataset (17 English, 17 Hindi, 17 Telugu):
 
-| Stage | P50 (ms) | P70 (ms) | P95 (ms) | P100 (ms) |
-|---|---|---|---|---|
-| Query Processing | 0.03 | 0.04 | 0.06 | 0.07 |
-| Hybrid Retrieval (FAISS + BM25) | 300.85 | 371.90 | 563.01 | 821.80 |
-| Guardrail Confidence Check | 0.01 | 0.01 | 0.01 | 0.02 |
-| Grounded Generation | 0.31 | 0.39 | 0.56 | 1.09 |
-| Guardrail Grounding Check | 0.00 | 0.00 | 0.00 | 0.00 |
-| **Total Post-STT Latency** | **301.24** | **372.20** | **563.48** | **822.24** |
+| Stage | P50 (ms) | P70 (ms) | P95 (ms) | P99 (ms) | P100 (ms) |
+|---|---|---|---|---|---|
+| Query Processing | 0.05 | 0.05 | 0.07 | 0.13 | 0.15 |
+| Hybrid Retrieval (FAISS + BM25) | 98.48 | 118.19 | 150.91 | 186.15 | 190.59 |
+| Guardrail Confidence Check | 0.01 | 0.01 | 0.02 | 0.03 | 0.03 |
+| Grounded Generation | 0.55 | 0.66 | 1.11 | 1.53 | 1.78 |
+| Guardrail Grounding Check | 0.00 | 0.00 | 0.00 | 0.01 | 0.01 |
+| **Total Post-STT Latency** | **98.94** | **118.90** | **151.40** | **187.08** | **191.45** |
 
-> **Summary:** 51 queries tested (42 grounded, 9 refused). P50 is ~300ms, with zero 10-second anomalies. Full reproducible report: `results/latency_report.json`.
+> **🎯 Target:** <200ms latency budget | **Status:** **PASS** (P50: **98.94ms**, P95: **151.40ms**, P99: **187.08ms** <= 200ms). Full report: `results/latency_report.json`.
 
 ## Guardrail Refusal Proof
 
@@ -113,7 +113,7 @@ main.py           - FastAPI server (deploy this)
 - [x] Ingest real dataset — FAISS index has 64,499 vectors across EN/HI/TE
 - [x] Pre-built binary index files (`faiss_index.bin`, `faiss_metadata.pkl`, `bm25_chunks.pkl`) tracked via Git LFS
 - [x] Chunking strategies implemented — fixed / semantic / metadata-aware
-- [x] Latency benchmarked on 51 queries across EN/HI/TE (P50: 301ms, P100: 822ms)
+- [x] Latency benchmarked on 51 queries across EN/HI/TE (P50: 98.94ms, P95: 151.40ms, P99: 187.08ms — PASS <200ms)
 - [x] Guardrails tested — 6/6 refusal tests passed (unsafe/off-topic/unanswerable)
 - [x] CORS configured via `CORS_ORIGINS` environment variable
 - [x] Deployed `main.py` with public URL (Railway / Vercel rewrite)

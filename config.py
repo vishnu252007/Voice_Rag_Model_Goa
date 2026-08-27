@@ -19,12 +19,9 @@ SARVAM_API_KEY = _get_clean_env("SARVAM_API_KEY", "")
 # "fast" = in-process fast synthesis for high-throughput benchmarks
 GENERATION_MODE = _get_clean_env("GENERATION_MODE", "fast").lower()
 
-# --- LLM for generation ---
-LLM_PROVIDER = _get_clean_env("LLM_PROVIDER", "groq").lower()
+# --- LLM for generation (when GENERATION_MODE=llm) ---
 GROQ_API_KEY = _get_clean_env("GROQ_API_KEY", "")
 GROQ_MODEL = _get_clean_env("GROQ_MODEL", "qwen/qwen3.8-27b")
-GEMINI_API_KEY = _get_clean_env("GEMINI_API_KEY", "")
-GEMINI_MODEL = _get_clean_env("GEMINI_MODEL", "gemini-1.5-flash")
 
 # --- Vector search backend ---
 VECTOR_BACKEND = _get_clean_env("VECTOR_BACKEND", "faiss").lower()

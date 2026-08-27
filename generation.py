@@ -6,7 +6,7 @@ English, Hindi (हिंदी), and Telugu (తెలుగు).
 import json
 import re
 import requests
-from config import GENERATION_MODE, LLM_PROVIDER, GROQ_API_KEY, GROQ_MODEL, GEMINI_API_KEY, GEMINI_MODEL
+from config import GENERATION_MODE, GROQ_API_KEY, GROQ_MODEL
 
 SYSTEM_PROMPT = """You are an extremely strict factual RAG assistant.
 Your job is to answer ONLY if the provided context passages explicitly and directly contain the exact answer to the user's question.
