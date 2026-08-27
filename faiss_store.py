@@ -57,37 +57,44 @@ def _try_git_lfs_pull():
 def _ensure_loaded():
     """Loads index and metadata into memory once at startup with automatic cloud fallback."""
     global _index, _metadata
-    if _index is None:
-        # 1. Primary: full 64K index (if real binary on local or pulled via LFS)
-        if os.path.exists(FAISS_INDEX_PATH) and os.path.exists(FAISS_METADATA_PATH) and not _is_lfs_pointer(FAISS_INDEX_PATH):
-            try:
-                _index = faiss.read_index(FAISS_INDEX_PATH)
+    if _index is None or _index.ntotal == 0:
+        # 1. Try loading from all pre-built binary candidates
+        candidates = [
+            (FAISS_INDEX_PATH, FAISS_METADATA_PATH),
+            (os.path.join(os.path.dirname(__file__), "kb_faiss.bin"), os.path.join(os.path.dirname(__file__), "kb_metadata.pkl")),
+            (os.path.join(os.path.dirname(__file__), "faiss_index.bin"), os.path.join(os.path.dirname(__file__), "faiss_metadata.pkl")),
+        ]
+        for bin_p, meta_p in candidates:
+            if os.path.exists(bin_p) and os.path.exists(meta_p) and not _is_lfs_pointer(bin_p):
                 try:
-                    _index.hnsw.efSearch = 24
-                except Exception:
-                    pass
-                with open(FAISS_METADATA_PATH, "rb") as f:
-                    _metadata = pickle.load(f)
-                return
-            except Exception as e:
-                print(f"Primary FAISS load notice: {e}")
+                    loaded_idx = faiss.read_index(bin_p)
+                    with open(meta_p, "rb") as f:
+                        loaded_meta = pickle.load(f)
+                    if loaded_idx.ntotal > 0 and len(loaded_meta) > 0:
+                        _index = loaded_idx
+                        try:
+                            _index.hnsw.efSearch = 24
+                        except Exception:
+                            pass
+                        _metadata = loaded_meta
+                        print(f"Loaded FAISS index from {bin_p} ({_index.ntotal} vectors).")
+                        return
+                except Exception as e:
+                    print(f"FAISS load notice for {bin_p}: {e}")
 
-        # 2. Cloud Fallback: kb_faiss.bin (27MB, pre-built, non-LFS, zero OOM risk)
-        kb_bin = os.path.join(os.path.dirname(__file__), "kb_faiss.bin")
-        kb_meta = os.path.join(os.path.dirname(__file__), "kb_metadata.pkl")
-        if os.path.exists(kb_bin) and os.path.exists(kb_meta) and not _is_lfs_pointer(kb_bin):
+        # 2. JSON Fallback: build from knowledge_base.json if binary files are unreadable
+        kb_json = os.path.join(os.path.dirname(__file__), "knowledge_base.json")
+        if os.path.exists(kb_json):
             try:
-                _index = faiss.read_index(kb_bin)
-                try:
-                    _index.hnsw.efSearch = 24
-                except Exception:
-                    pass
-                with open(kb_meta, "rb") as f:
-                    _metadata = pickle.load(f)
-                print(f"Loaded cloud-ready FAISS index ({_index.ntotal} vectors).")
-                return
+                import json
+                print("Building FAISS index from knowledge_base.json fallback...")
+                with open(kb_json, "r", encoding="utf-8") as f:
+                    chunks = json.load(f)
+                if chunks:
+                    build_index(chunks)
+                    return
             except Exception as e:
-                print(f"Cloud FAISS load notice: {e}")
+                print(f"JSON fallback build notice: {e}")
 
         # 3. Final in-memory fallback
         dim = 768

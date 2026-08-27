@@ -58,7 +58,7 @@ def _is_lfs_pointer(path: str) -> bool:
 
 
 def _try_autoload_bm25():
-    """Autoloads pre-built inverted BM25 index from cache if available."""
+    """Autoloads pre-built inverted BM25 index from cache or knowledge_base.json."""
     global _bm25_corpus, _postings, _doc_lens, _idf, _avgdl
 
     for path in ["bm25_index.pkl", "kb_bm25.pkl", "bm25_chunks.pkl"]:
@@ -81,6 +81,20 @@ def _try_autoload_bm25():
                     return
             except Exception as e:
                 print(f"BM25 load notice for {path}: {e}")
+
+    # Fallback to knowledge_base.json if pickled index is missing or LFS pointer
+    kb_json = os.path.join(os.path.dirname(__file__), "knowledge_base.json")
+    if os.path.exists(kb_json):
+        try:
+            import json
+            with open(kb_json, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, list) and data:
+                build_bm25_index(data)
+                print(f"BM25 index built directly from knowledge_base.json ({len(data)} chunks).")
+                return
+        except Exception as e:
+            print(f"BM25 knowledge_base.json fallback notice: {e}")
 
 
 def build_bm25_index(all_chunks: List[Dict]):
