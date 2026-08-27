@@ -212,6 +212,7 @@ def ask_voice(file: UploadFile = File(...), language: Optional[str] = Form(None)
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8000))
-    print(f"Starting Voice RAG server on http://127.0.0.1:{port} ...")
+    raw_port = os.getenv("PORT") or os.getenv("HTTP_PLATFORM_PORT") or "8000"
+    port = int(raw_port)
+    print(f"Starting Voice RAG server on http://0.0.0.0:{port} ...", flush=True)
     uvicorn.run(app, host="0.0.0.0", port=port)
