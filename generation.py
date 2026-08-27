@@ -5,6 +5,7 @@ English, Hindi (हिंदी), and Telugu (తెలుగు).
 """
 import json
 import re
+import threading
 import requests
 from config import GENERATION_MODE, GROQ_API_KEY, GROQ_MODEL
 
@@ -32,11 +33,13 @@ Output ONLY a valid JSON object matching this schema:
 LANG_NAME_MAP = {
     "en": "English",
     "hi": "Hindi (हिंदी)",
-    "te": "Telugu (తెలుగు)"
+    "te": "Telugu (తెలుగు)",
+    "ta": "Tamil (தமிழ்)"
 }
 
 _session = None
 _trans_cache = {}
+_trans_cache_lock = threading.Lock()
 
 
 def _get_session() -> requests.Session:
@@ -69,7 +72,7 @@ def _clean_text(raw: str) -> str:
 
 
 def _fast_synthesize(query: str, chunks: list) -> dict:
-    """In-process ultra-fast (<1ms) grounded answer extraction directly from top chunks with strict relevance validation."""
+    """In-process grounded answer extraction from retrieved top chunks."""
     if not chunks:
         return {
             "answer": "This question is out of context with respect to the indexed dataset/knowledge base.",
@@ -94,18 +97,27 @@ def _fast_synthesize(query: str, chunks: list) -> dict:
 
     best_chunk = None
     best_score = 0
+    best_matched_words = 0
 
     for c in chunks:
         c_text = c.get("text", "").lower()
         c_words = set(re.findall(r'\w+', c_text))
         matched = sum(1 for w in q_words if w in c_words)
         score = matched / max(1, len(q_words))
-        if score > best_score:
-            best_score = score
+        v_score = float(c.get("score", c.get("rerank_score", 0.0)))
+        total_score = max(score, v_score * 0.8)
+        if total_score > best_score:
+            best_score = total_score
             best_chunk = c
+            best_matched_words = matched
 
-    # Require comprehensive match of non-stopword query terms (>= 0.75) for grounding
-    if best_score < 0.75 or not best_chunk:
+    # If lexical overlap or vector similarity is insufficient, refuse cleanly
+    min_required_matches = 2 if len(q_words) >= 3 else 1
+    if (
+        not best_chunk
+        or (len(q_words) >= 3 and best_matched_words < min_required_matches and float(chunks[0].get("score", 0.0)) < 0.65)
+        or (best_score < 0.30 and float(chunks[0].get("score", 0.0)) < 0.45)
+    ):
         return {
             "answer": "This question is out of context with respect to the indexed dataset/knowledge base.",
             "grounded": False,
@@ -115,16 +127,18 @@ def _fast_synthesize(query: str, chunks: list) -> dict:
     text = best_chunk.get("text", "").strip()
     sentences = [s.strip() for s in re.split(r'[.!?।॥\n]+', text) if len(s.strip()) > 10]
     
-    # Pick the most relevant sentence from the chunk
-    best_sent = sentences[0] if sentences else text[:200]
+    best_sent = sentences[0] if sentences else text[:300]
     for s in sentences:
         s_words = set(re.findall(r'\w+', s.lower()))
-        if sum(1 for w in q_words if w in s_words) >= max(1, len(q_words) * 0.5):
+        if sum(1 for w in q_words if w in s_words) > 0:
             best_sent = s
             break
 
+    if len(best_sent) < 40 and len(sentences) > 1:
+        best_sent = f"{sentences[0]}. {sentences[1]}"
+
     return {
-        "answer": best_sent if best_sent.endswith(('.', '।')) else f"{best_sent}.",
+        "answer": best_sent if best_sent.endswith(('.', '।', '!')) else f"{best_sent}.",
         "grounded": True,
         "used_chunk_ids": [best_chunk.get("chunk_id", "chunk_0")],
     }
@@ -205,21 +219,22 @@ def _fallback_translate(text: str, target_language: str) -> str:
 
 
 def translate_text(text: str, target_language: str) -> str:
-    """Translates any answer into English, Hindi, or Telugu with caching & fallback."""
+    """Translates any answer into English, Hindi, Telugu, or Tamil with caching & fallback."""
     if not text or not text.strip():
         return ""
 
     target_code = target_language.lower().strip()
     cache_key = (text.strip(), target_code)
-    if cache_key in _trans_cache:
-        return _trans_cache[cache_key]
+    with _trans_cache_lock:
+        if cache_key in _trans_cache:
+            return _trans_cache[cache_key]
 
     target_lang_name = LANG_NAME_MAP.get(target_code, target_language)
 
     sys_msg = (
         f"You are a professional multilingual translator. "
         f"Translate the provided text directly into natural {target_lang_name}. "
-        f"Always write in the native script of {target_lang_name} (e.g., Devanagari for Hindi, Telugu script for Telugu, English for English). "
+        f"Always write in the native script of {target_lang_name} (e.g., Devanagari for Hindi, Telugu script for Telugu, Tamil script for Tamil, English for English). "
         "Output ONLY the final translated text. Do not output explanations, markdown formatting, or quotes."
     )
 
@@ -243,14 +258,16 @@ def translate_text(text: str, target_language: str) -> str:
                 raw_content = resp.json()["choices"][0]["message"]["content"]
                 translated = _clean_text(raw_content)
                 if translated and len(translated) > 3:
-                    _trans_cache[cache_key] = translated
+                    with _trans_cache_lock:
+                        _trans_cache[cache_key] = translated
                     return translated
     except Exception as e:
         print(f"Primary translation ({target_code}) error: {e}")
 
     fallback_res = _fallback_translate(text, target_code)
     if fallback_res:
-        _trans_cache[cache_key] = fallback_res
+        with _trans_cache_lock:
+            _trans_cache[cache_key] = fallback_res
         return fallback_res
 
     return text

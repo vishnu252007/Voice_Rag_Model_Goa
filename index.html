@@ -1284,7 +1284,11 @@
 
   function runPrompt(text) {
     queryInput.value = text;
-    queryTextForm.dispatchEvent(new Event('submit'));
+    if (queryTextForm.requestSubmit) {
+      queryTextForm.requestSubmit();
+    } else {
+      queryTextForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    }
   }
 
   contextToggleBtn.addEventListener('click', () => {
@@ -1301,29 +1305,42 @@
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
         audioChunks = [];
-        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.ondataavailable = e => {
+          if (e.data && e.data.size > 0) audioChunks.push(e.data);
+        };
         mediaRecorder.onstop = handleVoiceSubmit;
-        mediaRecorder.start();
+        mediaRecorder.start(100);
         isRecording = true;
         micBtn.classList.add('recording');
         visualizerWave.classList.add('active');
-        micStatusText.textContent = 'Listening... tap microphone when finished speaking';
+        micStatusText.textContent = '🎙️ Listening... speak now, then tap mic again when done';
         resultPanel.classList.remove('active');
       } catch (err) {
-        micStatusText.textContent = 'Microphone permission denied or unavailable';
+        micStatusText.textContent = 'Microphone permission denied or unavailable in browser';
       }
     } else {
-      mediaRecorder.stop();
-      mediaRecorder.stream.getTracks().forEach(t => t.stop());
       isRecording = false;
       micBtn.classList.remove('recording');
       visualizerWave.classList.remove('active');
       micStatusText.textContent = 'Processing speech & searching knowledge base...';
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(t => t.stop());
+      }
     }
   });
 
   async function handleVoiceSubmit() {
+    if (!audioChunks || audioChunks.length === 0) {
+      micStatusText.textContent = 'No speech detected. Please tap mic and speak clearly.';
+      return;
+    }
     const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+    if (audioBlob.size < 1200) {
+      micStatusText.textContent = 'Recording too short. Please speak for at least 1-2 seconds.';
+      return;
+    }
+
     const formData = new FormData();
     formData.append('file', audioBlob, 'speech.webm');
     if (activeLanguage) {

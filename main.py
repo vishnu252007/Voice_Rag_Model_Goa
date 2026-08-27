@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from contextlib import asynccontextmanager
 from typing import Optional
 import shutil
 import tempfile
@@ -33,7 +34,19 @@ def _normalize_language_code(sarvam_code: str) -> Optional[str]:
     return code if code in ["en", "hi", "te", "ta"] else None
 
 
-app = FastAPI(title="HH Goa 2026 - Voice RAG")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Pre-warms FAISS, BM25, and neural models into memory at server startup."""
+    try:
+        print("Pre-warming vector store and language models...")
+        answer_query("warmup initialization query", language_filter=None)
+        print("Warm-up complete.")
+    except Exception as e:
+        print(f"Warm-up skipped: {e}")
+    yield
+
+
+app = FastAPI(title="HH Goa 2026 - Voice RAG", lifespan=lifespan)
 
 _cors_origins_env = os.getenv("CORS_ORIGINS", "").strip()
 allowed_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()] or ["*"]
@@ -81,18 +94,6 @@ def favicon():
     if os.path.exists(fav_path):
         return FileResponse(fav_path)
     return FileResponse(os.path.join(os.path.dirname(__file__), "favicon.ico"))
-
-
-@app.on_event("startup")
-def warm_up_models():
-    """Pre-warms FAISS, BM25, and neural models into memory at server startup."""
-    try:
-        from harness import answer_query
-        print("Pre-warming vector store and language models...")
-        answer_query("warmup initialization query", language_filter=None)
-        print("Warm-up complete.")
-    except Exception as e:
-        print(f"Warm-up skipped: {e}")
 
 
 @app.post("/ask-text")

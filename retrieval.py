@@ -203,25 +203,27 @@ def rerank(query: str, candidates: List[Dict], top_k: int = TOP_K_FINAL) -> List
     for c, raw in zip(candidates, raw_scores):
         raw_val = float(raw)
         c["rerank_score_raw"] = raw_val
-        c["rerank_score"] = float(1.0 / (1.0 + math.exp(-raw_val))) if raw_val < 700 else 1.0
+        clipped_val = max(-500.0, min(500.0, raw_val))
+        c["rerank_score"] = float(1.0 / (1.0 + math.exp(-clipped_val)))
 
     return sorted(candidates, key=lambda c: c["rerank_score"], reverse=True)[:top_k]
 
 
 def hybrid_retrieve(query: str, language_filter: str = None, debug_timing: bool = None) -> List[Dict]:
-    """End-to-end hybrid retrieval: Vector + Fast Inverted BM25 -> RRF."""
+    """End-to-end hybrid retrieval: Concurrent Vector + Fast Inverted BM25 -> RRF."""
     import time
     if debug_timing is None:
         debug_timing = os.getenv("DEBUG_TIMING", "false").lower() == "true"
 
     t0 = time.perf_counter()
-    v_results = vector_search(query, top_k=TOP_K_RETRIEVE, language_filter=language_filter)
+    fut_v = _executor.submit(vector_search, query, TOP_K_RETRIEVE, language_filter)
+    fut_b = _executor.submit(bm25_search, query, TOP_K_RETRIEVE, language_filter)
+    v_results = fut_v.result()
+    b_results = fut_b.result()
     t1 = time.perf_counter()
-    b_results = bm25_search(query, top_k=TOP_K_RETRIEVE, language_filter=language_filter)
-    t2 = time.perf_counter()
 
     fused = _reciprocal_rank_fusion(v_results, b_results)
-    t3 = time.perf_counter()
+    t2 = time.perf_counter()
 
     candidates = fused[:TOP_K_FINAL]
     if RERANKER_ENABLED and candidates:
@@ -230,13 +232,13 @@ def hybrid_retrieve(query: str, language_filter: str = None, debug_timing: bool 
         for c in candidates:
             c["rerank_score"] = c.get("score", c.get("fused_score", 0.5))
         final = candidates
-    t4 = time.perf_counter()
+    t3 = time.perf_counter()
 
     if debug_timing:
         print(
-            f"    [retrieval] vector={(t1-t0)*1000:.2f}ms  "
-            f"bm25={(t2-t1)*1000:.2f}ms  rrf={(t3-t2)*1000:.2f}ms  "
-            f"total={(t4-t0)*1000:.2f}ms",
+            f"    [retrieval] concurrent_search={(t1-t0)*1000:.2f}ms  "
+            f"rrf={(t2-t1)*1000:.2f}ms  rerank={(t3-t2)*1000:.2f}ms  "
+            f"total={(t3-t0)*1000:.2f}ms",
             flush=True
         )
 

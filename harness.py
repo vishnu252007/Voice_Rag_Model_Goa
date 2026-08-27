@@ -5,6 +5,7 @@ Maintains granular stage timing metrics, caching, and recovery.
 """
 import sys
 import os
+import threading
 from collections import OrderedDict
 from retrieval import hybrid_retrieve
 from generation import generate_answer
@@ -13,6 +14,7 @@ from latency import timed_stage, log_run
 from config import CACHE_ENABLED, CACHE_MAX_SIZE
 
 _cache: "OrderedDict[tuple, dict]" = OrderedDict()
+_cache_lock = threading.Lock()
 
 
 def _cache_key(query_text: str, language_filter: str) -> tuple:
@@ -20,17 +22,19 @@ def _cache_key(query_text: str, language_filter: str) -> tuple:
 
 
 def _cache_get(key):
-    if key in _cache:
-        _cache.move_to_end(key)
-        return _cache[key]
-    return None
+    with _cache_lock:
+        if key in _cache:
+            _cache.move_to_end(key)
+            return _cache[key]
+        return None
 
 
 def _cache_put(key, value):
-    _cache[key] = value
-    _cache.move_to_end(key)
-    if len(_cache) > CACHE_MAX_SIZE:
-        _cache.popitem(last=False)
+    with _cache_lock:
+        _cache[key] = value
+        _cache.move_to_end(key)
+        if len(_cache) > CACHE_MAX_SIZE:
+            _cache.popitem(last=False)
 
 
 def _refusal(reason: str, stage: str, language: str = None) -> dict:
@@ -106,8 +110,9 @@ def answer_query(query_text: str, language_filter: str = None) -> dict:
 
     if not ok:
         ref_resp = _refusal(reason, "grounding_check", language_filter)
-        if result.get("answer") and not str(result["answer"]).startswith("Error"):
-            ref_resp["answer"] = result["answer"]
+        ans = result.get("answer", "")
+        if any(marker in ans.lower() for marker in ["out of context", "not have sufficient information", "no relevant context", "संदर्भ से बाहर", "వెలుపల"]):
+            ref_resp["answer"] = ans
         return {**ref_resp, "timings": timings}
 
     sources = [

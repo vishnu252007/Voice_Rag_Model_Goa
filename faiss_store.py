@@ -3,6 +3,7 @@ In-process vector search using FAISS and PyTorch inference optimizations.
 """
 import os
 import pickle
+import threading
 from typing import List, Dict
 import numpy as np
 import faiss
@@ -14,6 +15,8 @@ from config import FAISS_INDEX_PATH, FAISS_METADATA_PATH, EMBEDDING_MODEL
 _index = None
 _metadata: List[Dict] = []
 _embedder = None
+_query_embed_cache = {}
+_embed_cache_lock = threading.Lock()
 
 
 def _get_embedder() -> SentenceTransformer:
@@ -39,9 +42,6 @@ def _is_lfs_pointer(path: str) -> bool:
     except Exception:
         pass
     return False
-
-
-_query_embed_cache = {}
 
 
 def _try_git_lfs_pull():
@@ -166,15 +166,19 @@ def build_index(chunks: List[Dict]) -> int:
 
 def _encode_query(query: str) -> np.ndarray:
     q_key = query.strip()
-    if q_key in _query_embed_cache:
-        return _query_embed_cache[q_key]
+    with _embed_cache_lock:
+        if q_key in _query_embed_cache:
+            return _query_embed_cache[q_key]
+
     embedder = _get_embedder()
     with torch.inference_mode():
         vec = embedder.encode([q_key], convert_to_numpy=True, normalize_embeddings=True)
     vec = np.ascontiguousarray(vec, dtype=np.float32)
-    if len(_query_embed_cache) > 1000:
-        _query_embed_cache.pop(next(iter(_query_embed_cache)))
-    _query_embed_cache[q_key] = vec
+
+    with _embed_cache_lock:
+        if len(_query_embed_cache) > 1000:
+            _query_embed_cache.pop(next(iter(_query_embed_cache)))
+        _query_embed_cache[q_key] = vec
     return vec
 
 
