@@ -30,8 +30,9 @@ def transcribe_audio(file_path: str, mode: str = "transcribe", content_type: str
     if not SARVAM_API_KEY:
         raise RuntimeError("SARVAM_API_KEY is not set. Add it to your .env file.")
 
+    filename = "audio.webm" if "webm" in content_type else "audio.wav"
     with open(file_path, "rb") as f:
-        files = {"file": (file_path, f, content_type)}
+        files = {"file": (filename, f, content_type)}
         data = {"model": "saaras:v3", "mode": mode}
         headers = {"api-subscription-key": SARVAM_API_KEY}
 

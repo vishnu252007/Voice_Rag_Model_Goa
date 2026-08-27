@@ -27,9 +27,10 @@ from latency import timed_stage
 
 
 def _normalize_language_code(sarvam_code: str) -> Optional[str]:
-    if not sarvam_code:
+    if not sarvam_code or sarvam_code.lower() in ["unknown", "none", "null", "auto"]:
         return None
-    return sarvam_code.split("-")[0].lower()
+    code = sarvam_code.split("-")[0].lower()
+    return code if code in ["en", "hi", "te", "ta"] else None
 
 
 app = FastAPI(title="HH Goa 2026 - Voice RAG")
@@ -97,15 +98,29 @@ def warm_up_models():
 @app.post("/ask-text")
 def ask_text(payload: TextQuery):
     """Text-in, text-out testing endpoint."""
-    return answer_query(payload.query, language_filter=payload.language)
+    try:
+        return answer_query(payload.query, language_filter=_normalize_language_code(payload.language))
+    except Exception as e:
+        print(f"Error in ask_text: {e}")
+        return {
+            "answer": f"Error processing query: {e}",
+            "grounded": False,
+            "refused": True,
+            "refusal_reason": str(e),
+            "sources": [],
+            "timings": {"total_ms": 0.0}
+        }
 
 
 @app.post("/translate")
 def translate_api(payload: TranslateRequest):
     """On-demand translation of answers into English, Hindi, Telugu, or Tamil."""
-    from generation import translate_text
-    translated = translate_text(payload.text, payload.target_language)
-    return {"translated_text": translated, "target_language": payload.target_language}
+    try:
+        from generation import translate_text
+        translated = translate_text(payload.text, payload.target_language)
+        return {"translated_text": translated, "target_language": payload.target_language}
+    except Exception as e:
+        return {"translated_text": payload.text, "target_language": payload.target_language, "error": str(e)}
 
 
 
@@ -149,14 +164,38 @@ def ask_voice(file: UploadFile = File(...), language: Optional[str] = Form(None)
                 "timings": {"stt_ms": stt_ms, "total_ms": stt_ms}
             }
 
-        detected_lang = language or _normalize_language_code(stt_result.get("language"))
-        response = answer_query(transcript, language_filter=detected_lang)
+        detected_lang = _normalize_language_code(language) or _normalize_language_code(stt_result.get("language"))
+        try:
+            response = answer_query(transcript, language_filter=detected_lang)
+        except Exception as rag_err:
+            print(f"RAG harness error: {rag_err}")
+            return {
+                "answer": f"Error during query retrieval: {rag_err}",
+                "grounded": False,
+                "refused": True,
+                "refusal_reason": str(rag_err),
+                "transcript": transcript,
+                "sources": [],
+                "timings": {"stt_ms": stt_ms, "total_ms": stt_ms}
+            }
+
         response["transcript"] = transcript
         response["detected_language"] = stt_result.get("language")
         response["timings"]["stt_ms"] = stt_ms
         if "total_ms" in response["timings"]:
             response["timings"]["total_ms"] = round(response["timings"]["total_ms"] + stt_ms, 1)
         return response
+    except Exception as e:
+        print(f"General ask_voice error: {e}")
+        return {
+            "answer": f"Server error: {e}",
+            "grounded": False,
+            "refused": True,
+            "refusal_reason": str(e),
+            "transcript": "",
+            "sources": [],
+            "timings": {"total_ms": 0.0}
+        }
     finally:
         if os.path.exists(tmp_path):
             try:
