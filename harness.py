@@ -138,5 +138,13 @@ def answer_query(query_text: str, language_filter: str = None) -> dict:
 if __name__ == "__main__":
     if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    # Pre-warm models so CLI queries reflect warm runtime latency
+    answer_query("warmup initialization query", language_filter=None)
     query = sys.argv[1] if len(sys.argv) > 1 else "What was the Manhattan project?"
-    print(answer_query(query))
+    res = answer_query(query)
+    print("\n" + "=" * 50)
+    print(f"Query: {query}")
+    print(f"Answer: {res.get('answer')}")
+    print(f"Grounded: {res.get('grounded')} | Refused: {res.get('refused')}")
+    print(f"Timings: {res.get('timings')}")
+    print("=" * 50)

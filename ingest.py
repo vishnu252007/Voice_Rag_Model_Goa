@@ -22,7 +22,7 @@ from huggingface_hub import hf_hub_download
 
 from chunking import fixed_size_chunk, semantic_chunk, metadata_aware_chunk
 from config import VECTOR_BACKEND
-from retrieval import build_bm25_index
+from retrieval import build_bm25_index, save_bm25_index
 
 if VECTOR_BACKEND == "faiss":
     from faiss_store import build_index as upload_chunks
@@ -130,7 +130,8 @@ def main():
     build_bm25_index(merged_chunks)
     with open(BM25_CACHE_PATH, "wb") as f:
         pickle.dump(merged_chunks, f)
-    print(f"Saved BM25 cache to {BM25_CACHE_PATH}.")
+    print(f"Saved raw BM25 chunk cache to {BM25_CACHE_PATH}.")
+    save_bm25_index("bm25_index.pkl")
     print("Ingestion completed successfully!")
 
 

@@ -67,6 +67,75 @@ def _ensure_loaded():
             _metadata = pickle.load(f)
 
 
+def build_index(chunks: List[Dict]) -> int:
+    """Additive indexing: embeds new chunks and appends to FAISS index."""
+    global _index, _metadata
+
+    existing_ids = set()
+    if os.path.exists(FAISS_INDEX_PATH) and os.path.exists(FAISS_METADATA_PATH):
+        try:
+            _ensure_loaded()
+            existing_ids = {m["chunk_id"] for m in _metadata}
+            index = _index
+            metadata = list(_metadata)
+        except Exception:
+            index = None
+            metadata = []
+    else:
+        index = None
+        metadata = []
+
+    new_chunks = [c for c in chunks if c["chunk_id"] not in existing_ids]
+    skipped = len(chunks) - len(new_chunks)
+    if skipped:
+        print(f"Skipping {skipped} chunks already present in index.")
+    if not new_chunks:
+        print("No new chunks to add.")
+        return 0
+
+    embedder = _get_embedder()
+    texts = [c["text"] for c in new_chunks]
+    print(f"Embedding {len(texts)} new chunks with {EMBEDDING_MODEL}...")
+    with torch.inference_mode():
+        vectors = embedder.encode(texts, show_progress_bar=True, convert_to_numpy=True, normalize_embeddings=True)
+    vectors = np.ascontiguousarray(vectors, dtype=np.float32)
+
+    dim = vectors.shape[1]
+    if index is None:
+        index = faiss.IndexHNSWFlat(dim, 32, faiss.METRIC_INNER_PRODUCT)
+        index.hnsw.efConstruction = 64
+        index.hnsw.efSearch = 24
+    elif index.d != dim:
+        print(f"Warning: Index dimension {index.d} does not match vector dimension {dim}. Creating new index...")
+        index = faiss.IndexHNSWFlat(dim, 32, faiss.METRIC_INNER_PRODUCT)
+        index.hnsw.efConstruction = 64
+        index.hnsw.efSearch = 24
+        metadata = []
+
+    index.add(vectors)
+    metadata.extend([
+        {
+            "chunk_id": c["chunk_id"],
+            "doc_id": c["doc_id"],
+            "text": c["text"],
+            "strategy": c["strategy"],
+            "metadata": c["metadata"],
+        }
+        for c in new_chunks
+    ])
+
+    faiss.write_index(index, FAISS_INDEX_PATH)
+    with open(FAISS_METADATA_PATH, "wb") as f:
+        pickle.dump(metadata, f)
+
+    _index = index
+    _metadata = metadata
+
+    print(f"Saved FAISS index ({index.ntotal} total vectors) to {FAISS_INDEX_PATH}")
+    print(f"Saved metadata ({len(metadata)} entries) to {FAISS_METADATA_PATH}")
+    return len(new_chunks)
+
+
 def _encode_query(query: str) -> np.ndarray:
     q_key = query.strip()
     if q_key in _query_embed_cache:

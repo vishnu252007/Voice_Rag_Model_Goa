@@ -30,6 +30,22 @@ _b = 0.75
 _executor = ThreadPoolExecutor(max_workers=2)
 
 
+def save_bm25_index(filepath: str = "bm25_index.pkl"):
+    """Saves the pre-computed inverted BM25 index to disk for instant loading."""
+    if _bm25_corpus is None or _postings is None:
+        return
+    data = {
+        "corpus": _bm25_corpus,
+        "postings": dict(_postings),
+        "doc_lens": _doc_lens,
+        "idf": _idf,
+        "avgdl": _avgdl,
+    }
+    with open(filepath, "wb") as f:
+        pickle.dump(data, f)
+    print(f"Saved inverted BM25 index ({len(_bm25_corpus)} chunks) to {filepath}")
+
+
 def _try_autoload_bm25():
     """Autoloads pre-built inverted BM25 index from cache if available for instant sub-ms search."""
     global _bm25_corpus, _postings, _doc_lens, _idf, _avgdl
@@ -59,6 +75,7 @@ def _try_autoload_bm25():
             with open(cache_path, "rb") as f:
                 chunks = pickle.load(f)
             build_bm25_index(chunks)
+            save_bm25_index(index_cache_path)
         except Exception as e:
             print(f"BM25 autoload skipped: {e}")
 
