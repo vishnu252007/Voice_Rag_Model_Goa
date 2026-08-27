@@ -29,7 +29,12 @@ RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTr
 # Copy application files
 COPY . .
 
+# Rebuild FAISS and BM25 indices natively on Linux from knowledge_base.json
+# (Windows-built .bin/.pkl files are NOT cross-platform compatible with Linux)
+RUN python build_index.py
+
 # Run FastAPI server with dynamic PORT resolution
 CMD ["python", "main.py"]
+
 
 
