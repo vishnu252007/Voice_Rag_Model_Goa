@@ -36,8 +36,6 @@ RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTr
 # Copy application files
 COPY --chown=user:user . .
 
-# Expose Hugging Face Space default port
-EXPOSE 7860
+# Run FastAPI server with dynamic PORT resolution
+CMD ["python", "main.py"]
 
-# Run FastAPI via Uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
