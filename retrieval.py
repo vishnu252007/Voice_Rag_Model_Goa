@@ -47,44 +47,29 @@ def save_bm25_index(filepath: str = "bm25_index.pkl"):
 
 
 def _try_autoload_bm25():
-    """Autoloads pre-built inverted BM25 index from cache if available for instant sub-ms search."""
+    """Autoloads pre-built inverted BM25 index from cache if available."""
     global _bm25_corpus, _postings, _doc_lens, _idf, _avgdl
-    index_cache_path = os.path.join(os.path.dirname(__file__), "bm25_index.pkl")
-    if os.path.exists(index_cache_path) and os.path.getsize(index_cache_path) > 1000:
-        try:
-            with open(index_cache_path, "rb") as f:
-                data = pickle.load(f)
-            _bm25_corpus = data["corpus"]
-            _postings = data["postings"]
-            _doc_lens = data["doc_lens"]
-            _idf = data["idf"]
-            _avgdl = data["avgdl"]
-            return
-        except Exception as e:
-            print(f"Fast BM25 autoload failed: {e}")
 
-    cache_path = os.path.join(os.path.dirname(__file__), "bm25_chunks.pkl")
-    if os.path.exists(cache_path) and os.path.getsize(cache_path) > 1000:
-        try:
-            with open(cache_path, "rb") as f:
-                chunks = pickle.load(f)
-            build_bm25_index(chunks)
-            save_bm25_index(index_cache_path)
-            return
-        except Exception as e:
-            print(f"BM25 autoload skipped: {e}")
-
-    # Fallback to bundled knowledge_base.json
-    kb_path = os.path.join(os.path.dirname(__file__), "knowledge_base.json")
-    if os.path.exists(kb_path):
-        try:
-            import json
-            with open(kb_path, "r", encoding="utf-8") as f:
-                kb_chunks = json.load(f)
-            build_bm25_index(kb_chunks)
-            print(f"BM25 index built from bundled knowledge_base.json ({len(kb_chunks)} passages).")
-        except Exception as e:
-            print(f"BM25 knowledge base load error: {e}")
+    for path in ["bm25_index.pkl", "kb_bm25.pkl", "bm25_chunks.pkl"]:
+        full_p = os.path.join(os.path.dirname(__file__), path)
+        if os.path.exists(full_p) and os.path.getsize(full_p) > 1000 and not _is_lfs_pointer(full_p):
+            try:
+                with open(full_p, "rb") as f:
+                    data = pickle.load(f)
+                if isinstance(data, dict) and "corpus" in data and "postings" in data:
+                    _bm25_corpus = data["corpus"]
+                    _postings = data["postings"]
+                    _doc_lens = data["doc_lens"]
+                    _idf = data["idf"]
+                    _avgdl = data["avgdl"]
+                    print(f"BM25 index loaded from {path} ({len(_bm25_corpus)} chunks).")
+                    return
+                elif isinstance(data, list):
+                    build_bm25_index(data)
+                    print(f"BM25 index built from {path} ({len(data)} chunks).")
+                    return
+            except Exception as e:
+                print(f"BM25 load notice for {path}: {e}")
 
 
 def build_bm25_index(all_chunks: List[Dict]):

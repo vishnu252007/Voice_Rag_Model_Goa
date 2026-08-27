@@ -55,10 +55,10 @@ def _try_git_lfs_pull():
 
 
 def _ensure_loaded():
-    """Loads index and metadata into memory once at startup with automatic self-healing."""
+    """Loads index and metadata into memory once at startup with automatic cloud fallback."""
     global _index, _metadata
     if _index is None:
-        # Check if actual binary index exists and is NOT a Git LFS pointer
+        # 1. Primary: full 64K index (if real binary on local or pulled via LFS)
         if os.path.exists(FAISS_INDEX_PATH) and os.path.exists(FAISS_METADATA_PATH) and not _is_lfs_pointer(FAISS_INDEX_PATH):
             try:
                 _index = faiss.read_index(FAISS_INDEX_PATH)
@@ -70,34 +70,26 @@ def _ensure_loaded():
                     _metadata = pickle.load(f)
                 return
             except Exception as e:
-                print(f"Direct FAISS load notice: {e}")
+                print(f"Primary FAISS load notice: {e}")
 
-        # If missing or LFS pointer on cloud deployment, load from bundled knowledge_base.json
-        kb_path = os.path.join(os.path.dirname(__file__), "knowledge_base.json")
-        if os.path.exists(kb_path):
+        # 2. Cloud Fallback: kb_faiss.bin (27MB, pre-built, non-LFS, zero OOM risk)
+        kb_bin = os.path.join(os.path.dirname(__file__), "kb_faiss.bin")
+        kb_meta = os.path.join(os.path.dirname(__file__), "kb_metadata.pkl")
+        if os.path.exists(kb_bin) and os.path.exists(kb_meta) and not _is_lfs_pointer(kb_bin):
             try:
-                import json
-                print(f"Loading bundled knowledge base from {kb_path}...")
-                with open(kb_path, "r", encoding="utf-8") as f:
-                    kb_chunks = json.load(f)
-                print(f"Building in-memory FAISS index over {len(kb_chunks)} passages...")
-                embedder = _get_embedder()
-                texts = [c["text"] for c in kb_chunks]
-                with torch.inference_mode():
-                    vectors = embedder.encode(texts, convert_to_numpy=True, normalize_embeddings=True)
-                vectors = np.ascontiguousarray(vectors, dtype=np.float32)
-                dim = vectors.shape[1]
-                index = faiss.IndexHNSWFlat(dim, 32, faiss.METRIC_INNER_PRODUCT)
-                index.hnsw.efSearch = 24
-                index.add(vectors)
-                _index = index
-                _metadata = kb_chunks
-                print(f"FAISS in-memory index successfully ready with {_index.ntotal} vectors.")
+                _index = faiss.read_index(kb_bin)
+                try:
+                    _index.hnsw.efSearch = 24
+                except Exception:
+                    pass
+                with open(kb_meta, "rb") as f:
+                    _metadata = pickle.load(f)
+                print(f"Loaded cloud-ready FAISS index ({_index.ntotal} vectors).")
                 return
             except Exception as e:
-                print(f"Bundled knowledge base build error: {e}")
+                print(f"Cloud FAISS load notice: {e}")
 
-        # Final empty fallback to avoid unhandled crashes
+        # 3. Final in-memory fallback
         dim = 768
         _index = faiss.IndexHNSWFlat(dim, 32, faiss.METRIC_INNER_PRODUCT)
         _metadata = []
