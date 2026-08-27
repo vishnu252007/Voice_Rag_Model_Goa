@@ -70,6 +70,8 @@ def answer_query(query_text: str, language_filter: str = None) -> dict:
     timings["query_processing_ms"] = round(t_in["ms"], 2)
 
     if not ok:
+        timings["total_ms"] = round(sum(v for k, v in timings.items() if isinstance(v, (int, float))), 2)
+        log_run(timings)
         return {**_refusal(reason, "input_check", language_filter), "timings": timings}
 
     # Stage 2: Hybrid Retrieval (Dense Vector FAISS + BM25)
@@ -85,6 +87,8 @@ def answer_query(query_text: str, language_filter: str = None) -> dict:
     timings["confidence_check_ms"] = round(t_conf["ms"], 2)
 
     if not ok:
+        timings["total_ms"] = round(sum(v for k, v in timings.items() if isinstance(v, (int, float))), 2)
+        log_run(timings)
         return {**_refusal(reason, "retrieval_check", language_filter), "timings": timings}
 
     # Stage 4: Answer Generation
@@ -97,15 +101,14 @@ def answer_query(query_text: str, language_filter: str = None) -> dict:
         ok, reason = check_grounding(result)
     timings["grounding_ms"] = round(t_grd["ms"], 2)
 
+    timings["total_ms"] = round(sum(v for k, v in timings.items() if isinstance(v, (int, float))), 2)
+    log_run(timings)
+
     if not ok:
         ref_resp = _refusal(reason, "grounding_check", language_filter)
         if result.get("answer") and not str(result["answer"]).startswith("Error"):
             ref_resp["answer"] = result["answer"]
         return {**ref_resp, "timings": timings}
-
-    # Total post-STT wall latency
-    timings["total_ms"] = round(sum(v for k, v in timings.items() if isinstance(v, (int, float))), 2)
-    log_run(timings)
 
     sources = [
         {

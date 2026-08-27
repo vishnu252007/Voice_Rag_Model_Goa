@@ -167,16 +167,16 @@ def _call_groq(system_prompt: str, user_prompt: str, max_tokens: int = 150) -> s
         resp = session.post(
             "https://api.groq.com/openai/v1/chat/completions",
             json=payload,
-            timeout=10,
+            timeout=5,
         )
         if resp.status_code == 429:
             if attempt < max_retries - 1:
                 retry_after = resp.headers.get("Retry-After")
                 try:
-                    sleep_time = float(retry_after) if retry_after else (base_delay * (2 ** attempt))
+                    sleep_time = min(0.3, float(retry_after)) if retry_after else (base_delay * (2 ** attempt))
                 except (ValueError, TypeError):
                     sleep_time = base_delay * (2 ** attempt)
-                sleep_time = max(1.0, min(sleep_time, 5.0))
+                sleep_time = min(sleep_time, 0.5)
                 time.sleep(sleep_time)
                 continue
         resp.raise_for_status()

@@ -33,60 +33,76 @@ LANGUAGE_TO_FILE_PREFIX = {
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--language", type=str, default="en", choices=list(LANGUAGE_TO_FILE_PREFIX.keys()))
-    parser.add_argument("--n", type=int, default=30, help="Number of queries to benchmark.")
-    parser.add_argument("--reset", action="store_true", help="Reset latency_log.csv before starting.")
+    parser.add_argument("--languages", type=str, default="en,hi,te",
+                        help="Comma-separated language codes to benchmark (e.g. en,hi,te).")
+    parser.add_argument("--language", type=str, default=None,
+                        help="Single language code (legacy option).")
+    parser.add_argument("--n", type=int, default=17,
+                        help="Number of queries per language.")
+    parser.add_argument("--reset", action="store_true", default=True,
+                        help="Reset latency_log.csv before starting.")
     args = parser.parse_args()
+
+    if args.reset and os.path.exists(LOG_FILE):
+        os.remove(LOG_FILE)
 
     print("=================================================================")
     print(" 🚀 Warming up (model load + first inference)...")
     print("=================================================================")
     # Pre-warm embedding, FAISS index, and BM25 index
-    answer_query("warmup initialization text", language_filter=None)
-    if args.reset and os.path.exists(LOG_FILE):
+    answer_query("warmup initialization query", language_filter=None)
+    # Remove warmup from log so only benchmark queries count
+    if os.path.exists(LOG_FILE):
         os.remove(LOG_FILE)
     print("Warm-up complete.\n")
 
-    file_prefix = LANGUAGE_TO_FILE_PREFIX.get(args.language, "hin")
-    local_path = hf_hub_download(
-        repo_id="ai4bharat/MSMARCO-XI", repo_type="dataset",
-        filename=f"train/{file_prefix}train.parquet",
-    )
+    target_langs = [args.language] if args.language else [l.strip() for l in args.languages.split(",") if l.strip()]
 
-    parquet_file = pq.ParquetFile(local_path)
-    field = "Eng_Query" if args.language == "en" else "query"
+    total_grounded = 0
+    total_refused = 0
+    total_tested = 0
 
-    questions = []
-    for batch in parquet_file.iter_batches(batch_size=50):
-        for row in batch.to_pylist():
-            q = row.get(field, "")
-            if q and len(q.strip()) > 5:
-                questions.append(q.strip())
+    for lang in target_langs:
+        file_prefix = LANGUAGE_TO_FILE_PREFIX.get(lang, "hin")
+        split = "validation" if lang == "te" else "train"
+        suffix = "val" if split == "validation" else "train"
+        local_path = hf_hub_download(
+            repo_id="ai4bharat/MSMARCO-XI", repo_type="dataset",
+            filename=f"{split}/{file_prefix}{suffix}.parquet",
+        )
+
+        parquet_file = pq.ParquetFile(local_path)
+        field = "Eng_Query" if lang == "en" else "query"
+
+        questions = []
+        for batch in parquet_file.iter_batches(batch_size=50):
+            for row in batch.to_pylist():
+                q = row.get(field, "")
+                if q and len(q.strip()) > 5:
+                    questions.append(q.strip())
+                if len(questions) >= args.n:
+                    break
             if len(questions) >= args.n:
                 break
-        if len(questions) >= args.n:
-            break
 
-    print(f"Running benchmark on {len(questions)} queries for language '{args.language}'...\n")
+        print(f"Running benchmark on {len(questions)} queries for language '{lang}'...\n")
 
-    grounded_count = 0
-    refused_count = 0
+        for i, q in enumerate(questions):
+            res = answer_query(q, language_filter=lang)
+            status = "✓ GROUNDED" if res.get("grounded") else "✗ REFUSED"
+            if res.get("grounded"):
+                total_grounded += 1
+            else:
+                total_refused += 1
+            total_tested += 1
 
-    for i, q in enumerate(questions):
-        res = answer_query(q, language_filter=args.language)
-        status = "✓ GROUNDED" if res.get("grounded") else "✗ REFUSED"
-        if res.get("grounded"):
-            grounded_count += 1
-        else:
-            refused_count += 1
+            t = res.get("timings", {})
+            total_ms = t.get("total_ms", 0.0)
+            retrieval_ms = t.get("retrieval_ms", 0.0)
+            gen_ms = t.get("generation_ms", 0.0)
+            print(f"  [{total_tested:>2}] ({lang.upper()}) {status} | Total: {total_ms:>5.1f}ms (Retr: {retrieval_ms:>5.1f}ms, Gen: {gen_ms:>4.1f}ms) — {q[:50]}")
 
-        t = res.get("timings", {})
-        total_ms = t.get("total_ms", 0.0)
-        retrieval_ms = t.get("retrieval_ms", 0.0)
-        gen_ms = t.get("generation_ms", 0.0)
-        print(f"  [{i+1:>2}/{len(questions)}] {status} | Total: {total_ms:>5.1f}ms (Retr: {retrieval_ms:>5.1f}ms, Gen: {gen_ms:>4.1f}ms) — {q[:55]}")
-
-    print(f"\nCompleted {len(questions)} queries ({grounded_count} grounded, {refused_count} refused).")
+    print(f"\nCompleted {total_tested} total queries ({total_grounded} grounded, {total_refused} refused).")
     summarize()
 
 

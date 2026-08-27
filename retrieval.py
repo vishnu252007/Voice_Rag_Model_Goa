@@ -25,6 +25,12 @@ def _try_autoload_bm25():
     cache_path = os.path.join(os.path.dirname(__file__), "bm25_chunks.pkl")
     if os.path.exists(cache_path):
         try:
+            if os.path.getsize(cache_path) < 1000:
+                with open(cache_path, "rb") as f:
+                    head = f.read(100)
+                if b"version https://git-lfs" in head:
+                    print("Notice: bm25_chunks.pkl is a Git LFS pointer. Run 'git lfs pull' or 'python ingest.py' to populate.")
+                    return
             with open(cache_path, "rb") as f:
                 chunks = pickle.load(f)
             build_bm25_index(chunks)
