@@ -58,37 +58,49 @@ def _ensure_loaded():
     """Loads index and metadata into memory once at startup with automatic self-healing."""
     global _index, _metadata
     if _index is None:
-        if not os.path.exists(FAISS_INDEX_PATH) or _is_lfs_pointer(FAISS_INDEX_PATH) or _is_lfs_pointer(FAISS_METADATA_PATH):
-            print("Notice: FAISS binary index missing or is a Git LFS pointer. Attempting auto-recovery...")
-            _try_git_lfs_pull()
-
-        # If still missing or an LFS pointer (e.g. cloud container without git-lfs), auto-build index
-        if not os.path.exists(FAISS_INDEX_PATH) or _is_lfs_pointer(FAISS_INDEX_PATH) or _is_lfs_pointer(FAISS_METADATA_PATH):
-            print("Auto-building starter FAISS index from dataset...")
+        # Check if actual binary index exists and is NOT a Git LFS pointer
+        if os.path.exists(FAISS_INDEX_PATH) and os.path.exists(FAISS_METADATA_PATH) and not _is_lfs_pointer(FAISS_INDEX_PATH):
             try:
-                from chunking import metadata_aware_chunk
-                import pandas as pd
-                # Quick fallback corpus ingestion
-                from ingest import load_and_chunk_split
-                chunks = load_and_chunk_split("en", limit=300, strategy="metadata")
-                build_index(chunks)
+                _index = faiss.read_index(FAISS_INDEX_PATH)
+                try:
+                    _index.hnsw.efSearch = 24
+                except Exception:
+                    pass
+                with open(FAISS_METADATA_PATH, "rb") as f:
+                    _metadata = pickle.load(f)
+                return
             except Exception as e:
-                print(f"Auto-recovery build notice: {e}")
+                print(f"Direct FAISS load notice: {e}")
 
-        if not os.path.exists(FAISS_INDEX_PATH) or _is_lfs_pointer(FAISS_INDEX_PATH):
-            # Final in-memory fallback to guarantee 0 crashes
-            dim = 768
-            _index = faiss.IndexHNSWFlat(dim, 32, faiss.METRIC_INNER_PRODUCT)
-            _metadata = []
-            return
+        # If missing or LFS pointer on cloud deployment, load from bundled knowledge_base.json
+        kb_path = os.path.join(os.path.dirname(__file__), "knowledge_base.json")
+        if os.path.exists(kb_path):
+            try:
+                import json
+                print(f"Loading bundled knowledge base from {kb_path}...")
+                with open(kb_path, "r", encoding="utf-8") as f:
+                    kb_chunks = json.load(f)
+                print(f"Building in-memory FAISS index over {len(kb_chunks)} passages...")
+                embedder = _get_embedder()
+                texts = [c["text"] for c in kb_chunks]
+                with torch.inference_mode():
+                    vectors = embedder.encode(texts, convert_to_numpy=True, normalize_embeddings=True)
+                vectors = np.ascontiguousarray(vectors, dtype=np.float32)
+                dim = vectors.shape[1]
+                index = faiss.IndexHNSWFlat(dim, 32, faiss.METRIC_INNER_PRODUCT)
+                index.hnsw.efSearch = 24
+                index.add(vectors)
+                _index = index
+                _metadata = kb_chunks
+                print(f"FAISS in-memory index successfully ready with {_index.ntotal} vectors.")
+                return
+            except Exception as e:
+                print(f"Bundled knowledge base build error: {e}")
 
-        _index = faiss.read_index(FAISS_INDEX_PATH)
-        try:
-            _index.hnsw.efSearch = 24
-        except Exception:
-            pass
-        with open(FAISS_METADATA_PATH, "rb") as f:
-            _metadata = pickle.load(f)
+        # Final empty fallback to avoid unhandled crashes
+        dim = 768
+        _index = faiss.IndexHNSWFlat(dim, 32, faiss.METRIC_INNER_PRODUCT)
+        _metadata = []
 
 
 def build_index(chunks: List[Dict]) -> int:

@@ -64,20 +64,27 @@ def _try_autoload_bm25():
             print(f"Fast BM25 autoload failed: {e}")
 
     cache_path = os.path.join(os.path.dirname(__file__), "bm25_chunks.pkl")
-    if os.path.exists(cache_path):
+    if os.path.exists(cache_path) and os.path.getsize(cache_path) > 1000:
         try:
-            if os.path.getsize(cache_path) < 1000:
-                with open(cache_path, "rb") as f:
-                    head = f.read(100)
-                if b"version https://git-lfs" in head:
-                    print("Notice: bm25_chunks.pkl is a Git LFS pointer. Run 'git lfs pull' or 'python ingest.py' to populate.")
-                    return
             with open(cache_path, "rb") as f:
                 chunks = pickle.load(f)
             build_bm25_index(chunks)
             save_bm25_index(index_cache_path)
+            return
         except Exception as e:
             print(f"BM25 autoload skipped: {e}")
+
+    # Fallback to bundled knowledge_base.json
+    kb_path = os.path.join(os.path.dirname(__file__), "knowledge_base.json")
+    if os.path.exists(kb_path):
+        try:
+            import json
+            with open(kb_path, "r", encoding="utf-8") as f:
+                kb_chunks = json.load(f)
+            build_bm25_index(kb_chunks)
+            print(f"BM25 index built from bundled knowledge_base.json ({len(kb_chunks)} passages).")
+        except Exception as e:
+            print(f"BM25 knowledge base load error: {e}")
 
 
 def build_bm25_index(all_chunks: List[Dict]):
